@@ -1,6 +1,6 @@
 # Backend
 
-This is the local capability server for the hackathon prototype.
+This is the local FastAPI capability server for the hackathon prototype.
 
 It behaves like a small local API/MCP hub: the OS can ask what capabilities exist, then call endpoints for contacts, calendar events, tasks, budgets, shopping, and messages.
 
@@ -18,7 +18,19 @@ Each fake API is a separate module in `backend/tools`, so new capabilities can b
 
 ## Run
 
-From the repo root:
+Install dependencies once:
+
+```sh
+npm run setup:backend
+```
+
+Or directly with UV:
+
+```sh
+uv sync --project backend
+```
+
+Then run from the repo root:
 
 ```sh
 npm run backend
@@ -30,10 +42,22 @@ Or from this folder:
 npm run dev
 ```
 
+Or directly with UV from `backend/`:
+
+```sh
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8787
+```
+
 The server runs on:
 
 ```txt
 http://localhost:8787
+```
+
+FastAPI docs are available at:
+
+```txt
+http://localhost:8787/docs
 ```
 
 ## Useful Endpoints
@@ -42,8 +66,12 @@ http://localhost:8787
 - `GET /capabilities`
 - `GET /openapi.json`
 - `GET /contacts`
+- `GET /contacts/{contact_id}`
 - `GET /calendar/events`
+- `POST /calendar/events`
 - `GET /tasks`
+- `POST /tasks`
+- `PATCH /tasks/{task_id}`
 - `GET /shopping/search?q=snacks`
 - `POST /budget/estimate`
 - `POST /messages/draft`
@@ -53,4 +81,4 @@ All data is mocked and safe to change.
 
 ## Add A New Fake Tool
 
-See `backend/tools/README.md`.
+See `backend/app/tools/README.md`.
