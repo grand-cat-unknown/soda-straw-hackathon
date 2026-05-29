@@ -5,6 +5,7 @@ description = "FastAPI mock-data capability server for the Fluid Modular OS prot
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.115.6",
+    "mcp>=1.2.0",
     "python-dotenv>=1.2.2",
     "uvicorn[standard]==0.34.0",
 ]

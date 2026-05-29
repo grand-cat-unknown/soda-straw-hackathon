@@ -1,4 +1,4 @@
-from app.tools import actions, budget, calendar, contacts, messages, shopping, tasks
+from app.tools import actions, budget, calendar, contacts, messages, shadcn, shopping, tasks
 
 tool_modules = [
     contacts,
@@ -8,4 +8,5 @@ tool_modules = [
     budget,
     messages,
     actions,
+    shadcn,
 ]

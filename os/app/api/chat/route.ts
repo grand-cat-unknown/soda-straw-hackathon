@@ -1,8 +1,6 @@
 import OpenAI from "openai";
 import type { Tool } from "openai/resources/responses/responses";
 
-import { callShadcnTool, getShadcnOpenAITools } from "@/lib/shadcn-mcp";
-
 export const runtime = "nodejs";
 
 const openai = new OpenAI({
@@ -48,12 +46,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "Message is required." }, { status: 400 });
   }
 
-  const tools = [...optionalMcpTools(), ...(await getShadcnOpenAITools())];
+  const tools = optionalMcpTools();
 
   let response = await openai.responses.create({
     model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
     instructions:
-      "You are a concise local app agent. Use Soda Straw MCP for external service or workspace data lookups when available. Use shadcn tools for component registry work and component installation when available. Do not claim to have changed files unless a tool call actually did it.",
+      "You are a concise local app agent. Use Soda Straw MCP for external service or workspace data lookups, including the shadcn component-registry tools exposed through the backend. Do not claim to have changed files unless a tool call actually did it.",
     input: message.trim(),
     tools: tools.length > 0 ? tools : undefined,
   });
@@ -65,30 +63,13 @@ export async function POST(request: Request) {
       break;
     }
 
-    const toolOutputs = await Promise.all(
-      functionCalls.map(async (toolCall) => {
-        try {
-          if (toolCall.name.startsWith("shadcn__")) {
-            return {
-              type: "function_call_output" as const,
-              call_id: toolCall.call_id,
-              output: await callShadcnTool(toolCall.name, toolCall.arguments),
-            };
-          }
-
-          throw new Error(`Unhandled function tool: ${toolCall.name}`);
-        } catch (error) {
-          return {
-            type: "function_call_output" as const,
-            call_id: toolCall.call_id,
-            output: JSON.stringify({
-              error:
-                error instanceof Error ? error.message : "Tool call failed.",
-            }),
-          };
-        }
+    const toolOutputs = functionCalls.map((toolCall) => ({
+      type: "function_call_output" as const,
+      call_id: toolCall.call_id,
+      output: JSON.stringify({
+        error: `Unhandled function tool: ${toolCall.name}`,
       }),
-    );
+    }));
 
     response = await openai.responses.create({
       model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
