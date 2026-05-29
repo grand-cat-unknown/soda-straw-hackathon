@@ -1,10 +1,13 @@
 import { readJson, sendJson } from "../shared/http.js";
+import { assertObject, optionalString } from "../shared/validation.js";
 
 function draftMessage(payload) {
-  const eventName = payload.eventName || "Housewarming";
-  const date = payload.date || "next Saturday";
-  const tone = payload.tone || "warm";
-  const host = payload.host || "Srikanth";
+  assertObject(payload);
+
+  const eventName = optionalString(payload.eventName, "Housewarming", "eventName");
+  const date = optionalString(payload.date, "next Saturday", "date");
+  const tone = optionalString(payload.tone, "warm", "tone");
+  const host = optionalString(payload.host, "Srikanth", "host");
 
   return {
     subject: `${eventName} invite`,
@@ -19,10 +22,29 @@ export const messagesTool = {
   capabilities: [
     {
       id: "messages.draft",
+      tool: "messages",
       name: "Draft Message",
       description: "Create a draft invite or follow-up message.",
       method: "POST",
-      endpoint: "/messages/draft"
+      endpoint: "/messages/draft",
+      requestSchema: {
+        type: "object",
+        properties: {
+          eventName: { type: "string" },
+          date: { type: "string" },
+          tone: { type: "string" },
+          host: { type: "string" }
+        }
+      },
+      responseSchema: {
+        type: "object",
+        properties: {
+          subject: { type: "string" },
+          tone: { type: "string" },
+          body: { type: "string" }
+        },
+        required: ["subject", "tone", "body"]
+      }
     }
   ],
   async route({ request, response, url }) {

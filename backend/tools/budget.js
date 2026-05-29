@@ -1,11 +1,12 @@
 import { readJson, sendJson } from "../shared/http.js";
+import { assertObject, optionalNumber, optionalStringArray } from "../shared/validation.js";
 
 function estimateBudget(payload) {
-  const guestCount = Number(payload.guestCount || 8);
-  const perGuest = Number(payload.perGuest || 14);
-  const categories = Array.isArray(payload.categories) && payload.categories.length > 0
-    ? payload.categories
-    : ["drinks", "snacks", "supplies"];
+  assertObject(payload);
+
+  const guestCount = optionalNumber(payload.guestCount, 8, "guestCount");
+  const perGuest = optionalNumber(payload.perGuest, 14, "perGuest");
+  const categories = optionalStringArray(payload.categories, ["drinks", "snacks", "supplies"], "categories");
 
   const lineItems = categories.map((category) => {
     const multiplier = category === "decor" ? 0.25 : 1;
@@ -34,10 +35,36 @@ export const budgetTool = {
   capabilities: [
     {
       id: "budget.estimate",
+      tool: "budget",
       name: "Estimate Budget",
       description: "Estimate cost from guest count, budget target, and categories.",
       method: "POST",
-      endpoint: "/budget/estimate"
+      endpoint: "/budget/estimate",
+      requestSchema: {
+        type: "object",
+        properties: {
+          guestCount: { type: "number", minimum: 1 },
+          perGuest: { type: "number", minimum: 0 },
+          categories: {
+            type: "array",
+            items: { type: "string" }
+          }
+        }
+      },
+      responseSchema: {
+        type: "object",
+        properties: {
+          guestCount: { type: "number" },
+          perGuest: { type: "number" },
+          currency: { type: "string" },
+          lineItems: {
+            type: "array",
+            items: { type: "object" }
+          },
+          total: { type: "number" }
+        },
+        required: ["guestCount", "perGuest", "currency", "lineItems", "total"]
+      }
     }
   ],
   async route({ request, response, url }) {

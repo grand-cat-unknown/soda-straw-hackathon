@@ -24,10 +24,27 @@ export const shoppingTool = {
   capabilities: [
     {
       id: "shopping.search",
+      tool: "shopping",
       name: "Search Shopping Catalog",
       description: "Find mocked products for a plan.",
       method: "GET",
-      endpoint: "/shopping/search?q=snacks"
+      endpoint: "/shopping/search?q=snacks",
+      querySchema: {
+        type: "object",
+        properties: {
+          q: { type: "string", description: "Optional product or category search text." }
+        }
+      },
+      responseSchema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: { type: "object" }
+          }
+        },
+        required: ["items"]
+      }
     }
   ],
   async route({ request, response, url }) {

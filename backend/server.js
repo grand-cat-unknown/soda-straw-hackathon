@@ -1,7 +1,8 @@
 import http from "node:http";
 import { URL } from "node:url";
 
-import { sendJson } from "./shared/http.js";
+import { sendError, sendJson } from "./shared/http.js";
+import { createOpenApiDocument } from "./shared/openapi.js";
 import { tools } from "./tools/index.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -27,6 +28,11 @@ async function route(request, response) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/openapi.json") {
+    sendJson(response, 200, createOpenApiDocument({ host: HOST, port: PORT, capabilities }));
+    return;
+  }
+
   for (const tool of tools) {
     const handled = await tool.route({ request, response, url });
     if (handled) return;
@@ -40,10 +46,7 @@ async function route(request, response) {
 
 const server = http.createServer((request, response) => {
   route(request, response).catch((error) => {
-    sendJson(response, 500, {
-      error: "Internal server error",
-      message: error.message
-    });
+    sendError(response, error);
   });
 });
 

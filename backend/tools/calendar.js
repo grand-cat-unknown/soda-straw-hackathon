@@ -16,10 +16,21 @@ export const calendarTool = {
   capabilities: [
     {
       id: "calendar.list",
+      tool: "calendar",
       name: "List Calendar Events",
       description: "Read upcoming calendar events.",
       method: "GET",
-      endpoint: "/calendar/events"
+      endpoint: "/calendar/events",
+      responseSchema: {
+        type: "object",
+        properties: {
+          events: {
+            type: "array",
+            items: { type: "object" }
+          }
+        },
+        required: ["events"]
+      }
     }
   ],
   async route({ request, response, url }) {

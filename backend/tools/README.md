@@ -8,6 +8,8 @@ A tool module owns three things:
 2. Capability metadata
 3. Route handling
 
+The data can be fake, but the capability contract should be real. Include the HTTP method, endpoint, useful description, and request/response schemas whenever the OS planner should be able to reason about the tool.
+
 ## Shape
 
 ```js
@@ -20,7 +22,20 @@ export const exampleTool = {
       name: "Do Thing",
       description: "A short description for the OS planner.",
       method: "POST",
-      endpoint: "/example/do-thing"
+      endpoint: "/example/do-thing",
+      requestSchema: {
+        type: "object",
+        properties: {
+          value: { type: "string" }
+        }
+      },
+      responseSchema: {
+        type: "object",
+        properties: {
+          ok: { type: "boolean" }
+        },
+        required: ["ok"]
+      }
     }
   ],
   async route({ request, response, url }) {

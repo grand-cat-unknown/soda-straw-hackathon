@@ -12,10 +12,21 @@ export const tasksTool = {
   capabilities: [
     {
       id: "tasks.list",
+      tool: "tasks",
       name: "List Tasks",
       description: "Read open and completed tasks.",
       method: "GET",
-      endpoint: "/tasks"
+      endpoint: "/tasks",
+      responseSchema: {
+        type: "object",
+        properties: {
+          tasks: {
+            type: "array",
+            items: { type: "object" }
+          }
+        },
+        required: ["tasks"]
+      }
     }
   ],
   async route({ request, response, url }) {

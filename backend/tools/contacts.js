@@ -31,10 +31,27 @@ export const contactsTool = {
   capabilities: [
     {
       id: "contacts.search",
+      tool: "contacts",
       name: "Search Contacts",
       description: "Find people by name, relationship, city, or tag.",
       method: "GET",
-      endpoint: "/contacts"
+      endpoint: "/contacts",
+      querySchema: {
+        type: "object",
+        properties: {
+          q: { type: "string", description: "Optional search text." }
+        }
+      },
+      responseSchema: {
+        type: "object",
+        properties: {
+          contacts: {
+            type: "array",
+            items: { type: "object" }
+          }
+        },
+        required: ["contacts"]
+      }
     }
   ],
   async route({ request, response, url }) {
