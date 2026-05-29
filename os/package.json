@@ -1,0 +1,10 @@
+{
+  "name": "@fluid-os/os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fluid Modular OS web workspace.",
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"OS app scaffold coming next\""
+  }
+}

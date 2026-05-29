@@ -1,0 +1,14 @@
+{
+  "name": "soda-straw-hackathon",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Fluid Modular OS hackathon prototype.",
+  "scripts": {
+    "backend": "node backend/server.js",
+    "dev:backend": "node --watch backend/server.js"
+  },
+  "workspaces": [
+    "backend",
+    "os"
+  ]
+}

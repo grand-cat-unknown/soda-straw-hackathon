@@ -1,0 +1,11 @@
+{
+  "name": "@fluid-os/backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mock API and capability server for the Fluid Modular OS prototype.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}
