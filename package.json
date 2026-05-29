@@ -3,13 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Fluid Modular OS hackathon prototype.",
-  "scripts": {
-    "setup:backend": "uv sync --project backend",
-    "backend": "uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8787",
-    "dev:backend": "uv run --project backend uvicorn app.main:app --app-dir backend --reload --host 127.0.0.1 --port 8787"
-  },
   "workspaces": [
-    "backend",
     "os"
   ]
 }

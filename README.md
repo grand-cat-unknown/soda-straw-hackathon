@@ -18,17 +18,37 @@ Prototype repo for a Fluid Modular OS: an intent-driven workspace that assembles
 Install dependencies once:
 
 ```sh
-npm run setup:backend
-```
-
-This uses UV under the hood:
-
-```sh
 uv sync --project backend
 ```
 
 ```sh
-npm run backend
+uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8787
+```
+
+To launch the backend and expose every tool prefix through ngrok:
+
+```sh
+./launch-backend-ngrok.sh
+```
+
+The public launcher defaults to this static ngrok dev domain:
+
+```txt
+https://uncombed-wand-unfitted.ngrok-free.dev
+```
+
+Override it with `NGROK_URL` if you ever switch domains.
+
+This prints public URLs for:
+
+```txt
+https://uncombed-wand-unfitted.ngrok-free.dev/contacts/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/calendar/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/tasks/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/shopping/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/budget/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/messages/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/actions/openapi.json
 ```
 
 Then open:

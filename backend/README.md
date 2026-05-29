@@ -23,28 +23,30 @@ Each fake API is a separate module in `backend/app/tools`, so new capabilities c
 Install dependencies once:
 
 ```sh
-npm run setup:backend
-```
-
-Or directly with UV:
-
-```sh
 uv sync --project backend
 ```
 
 Then run from the repo root:
 
 ```sh
-npm run backend
+uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8787
 ```
 
-Or from this folder:
+Or, from the repo root, run the backend and expose all tool prefixes publicly through ngrok:
 
 ```sh
-npm run dev
+./launch-backend-ngrok.sh
 ```
 
-Or directly with UV from `backend/`:
+The public launcher defaults to this static ngrok dev domain:
+
+```txt
+https://uncombed-wand-unfitted.ngrok-free.dev
+```
+
+Override it with `NGROK_URL` if you ever switch domains.
+
+Or run directly with UV from `backend/`:
 
 ```sh
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8787
@@ -73,7 +75,7 @@ X-API-Key: fluid-os-dev-key
 Override it with:
 
 ```sh
-FLUID_OS_API_KEY=your-secret-key npm run backend
+FLUID_OS_API_KEY=your-secret-key uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8787
 ```
 
 ## Useful Endpoints
