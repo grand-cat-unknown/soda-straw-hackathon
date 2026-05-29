@@ -8,6 +8,7 @@ BACKEND_PORT="${BACKEND_PORT:-8787}"
 NGROK_REGION="${NGROK_REGION:-}"
 NGROK_URL="${NGROK_URL:-https://uncombed-wand-unfitted.ngrok-free.dev}"
 FLUID_OS_API_KEY="${FLUID_OS_API_KEY:-fluid-os-dev-key}"
+SODA_STRAW_RESET="${SODA_STRAW_RESET:-}"
 NGROK_API_URL="http://127.0.0.1:4040/api/tunnels"
 NGROK_LOG="${NGROK_LOG:-/tmp/fluid-os-ngrok.log}"
 PYTHON_BIN=""
@@ -157,6 +158,13 @@ main() {
   public_url="$(wait_for_public_url)"
 
   print_registry "$public_url"
+
+  if [[ -n "$SODA_STRAW_RESET" ]]; then
+    echo
+    echo "Resetting Soda Straw straws from backend tool registry ..."
+    FLUID_OS_PUBLIC_URL="$public_url" FLUID_OS_API_KEY="$FLUID_OS_API_KEY" \
+      "$PYTHON_BIN" "$ROOT_DIR/scripts/sync_soda_straw_straws.py"
+  fi
 
   wait "$backend_pid"
 }
