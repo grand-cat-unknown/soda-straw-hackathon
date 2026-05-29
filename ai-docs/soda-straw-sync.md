@@ -46,7 +46,7 @@ It performs this sequence:
 Run with the launcher:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./launch-backend-ngrok.sh
+SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./backend/launch-backend-ngrok.sh
 ```
 
 Run only the sync script:
@@ -74,8 +74,8 @@ Generate a Soda Straw API key from:
 https://srikanthganta.straw.demo.soda.io/connect
 ```
 
-Do not commit API keys. Put local secrets in `.env` files or shell environment
-variables.
+Do not commit API keys. Put local backend secrets in `backend/.env` or shell
+environment variables.
 
-The sync script loads `.env` and `backend/.env` if they exist. Shell
-environment variables win over values in those files.
+The launcher and sync script both load `backend/.env`. Shell environment
+variables win over values in that file.

@@ -15,7 +15,7 @@ Key paths:
 - `backend/app/main.py` - FastAPI app, registry endpoints, per-tool OpenAPI slicing.
 - `backend/app/tools/` - one fake capability module per tool prefix.
 - `backend/app/tools/__init__.py` - imports and orders enabled tool modules.
-- `launch-backend-ngrok.sh` - starts FastAPI and exposes it through ngrok.
+- `backend/launch-backend-ngrok.sh` - starts FastAPI and exposes it through ngrok.
 - `backend/scripts/sync_soda_straw_straws.py` - deletes/recreates Soda Straw straws from the live backend registry.
 - `os/` - placeholder Fluid OS web app scaffold.
 
@@ -27,6 +27,7 @@ Key paths:
 - Default backend dev API key: `fluid-os-dev-key`
 - Soda Straw workspace: `https://srikanthganta.straw.demo.soda.io`
 - Soda Straw straw prefix for this project: `fluid-os-`
+- Local backend environment file: `backend/.env`
 
 ## Run Commands
 
@@ -45,13 +46,13 @@ uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1
 Run FastAPI plus static ngrok:
 
 ```sh
-./launch-backend-ngrok.sh
+./backend/launch-backend-ngrok.sh
 ```
 
 Run FastAPI plus static ngrok, then reset Soda Straw straws:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./launch-backend-ngrok.sh
+SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./backend/launch-backend-ngrok.sh
 ```
 
 Run only the Soda Straw sync against an already-running public backend:

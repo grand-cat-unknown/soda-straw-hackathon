@@ -137,5 +137,5 @@ GET /{tool}/openapi.json
 5. Re-sync Soda Straw:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./launch-backend-ngrok.sh
+SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./backend/launch-backend-ngrok.sh
 ```

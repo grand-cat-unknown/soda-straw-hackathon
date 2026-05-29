@@ -35,7 +35,7 @@ uv run --project backend uvicorn app.main:app --app-dir backend --host 127.0.0.1
 Or, from the repo root, run the backend and expose all tool prefixes publicly through ngrok:
 
 ```sh
-./launch-backend-ngrok.sh
+./backend/launch-backend-ngrok.sh
 ```
 
 The public launcher defaults to this static ngrok dev domain:
@@ -46,10 +46,12 @@ https://uncombed-wand-unfitted.ngrok-free.dev
 
 Override it with `NGROK_URL` if you ever switch domains.
 
+The launcher reads local backend environment variables from `backend/.env`.
+
 To reset the matching Soda Straw straws after ngrok is live, pass a Soda Straw API key and set `SODA_STRAW_RESET`:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./launch-backend-ngrok.sh
+SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./backend/launch-backend-ngrok.sh
 ```
 
 You can generate a Soda Straw API key from `https://srikanthganta.straw.demo.soda.io/connect`.

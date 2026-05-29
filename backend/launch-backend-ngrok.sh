@@ -2,7 +2,16 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$BACKEND_DIR/.." && pwd)"
+
+if [[ -f "$BACKEND_DIR/.env" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$BACKEND_DIR/.env"
+  set +a
+fi
+
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8787}"
 NGROK_REGION="${NGROK_REGION:-}"
@@ -133,8 +142,8 @@ main() {
   echo "Starting FastAPI backend on http://$BACKEND_HOST:$BACKEND_PORT ..."
   (
     cd "$ROOT_DIR"
-    FLUID_OS_API_KEY="$FLUID_OS_API_KEY" uv run --project backend \
-      uvicorn app.main:app --app-dir backend --host "$BACKEND_HOST" --port "$BACKEND_PORT"
+    FLUID_OS_API_KEY="$FLUID_OS_API_KEY" uv run --project "$BACKEND_DIR" \
+      uvicorn app.main:app --app-dir "$BACKEND_DIR" --host "$BACKEND_HOST" --port "$BACKEND_PORT"
   ) &
   backend_pid="$!"
 
@@ -163,7 +172,7 @@ main() {
     echo
     echo "Resetting Soda Straw straws from backend tool registry ..."
     FLUID_OS_PUBLIC_URL="$public_url" FLUID_OS_API_KEY="$FLUID_OS_API_KEY" \
-      "$PYTHON_BIN" "$ROOT_DIR/backend/scripts/sync_soda_straw_straws.py"
+      "$PYTHON_BIN" "$BACKEND_DIR/scripts/sync_soda_straw_straws.py"
   fi
 
   wait "$backend_pid"

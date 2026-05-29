@@ -12,12 +12,12 @@ Use this when changing backend tools, auth, public URLs, or Soda Straw setup.
 
 ## Soda Straw Changes
 
-- Keep `launch-backend-ngrok.sh` pointing at the correct static ngrok URL.
+- Keep `backend/launch-backend-ngrok.sh` pointing at the correct static ngrok URL.
 - Keep `backend/scripts/sync_soda_straw_straws.py` aligned with the Soda Straw REST API.
 - After adding or renaming tools, run the reset flow:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./launch-backend-ngrok.sh
+SODA_STRAW_API_KEY=your-soda-straw-api-key SODA_STRAW_RESET=1 ./backend/launch-backend-ngrok.sh
 ```
 
 - If only previewing, add:
@@ -41,7 +41,7 @@ Update these files together when behavior changes:
 Run:
 
 ```sh
-bash -n launch-backend-ngrok.sh
+bash -n backend/launch-backend-ngrok.sh
 python3 -m py_compile backend/scripts/sync_soda_straw_straws.py
 ```
 

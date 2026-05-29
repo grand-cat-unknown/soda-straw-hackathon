@@ -10,12 +10,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
 
-load_dotenv()
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(dotenv_path=BACKEND_DIR / ".env")
 
 DEFAULT_SODA_STRAW_URL = "https://srikanthganta.straw.demo.soda.io"
 DEFAULT_PUBLIC_URL = "https://uncombed-wand-unfitted.ngrok-free.dev"
