@@ -11,7 +11,9 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
+
 from dotenv import load_dotenv
+
 
 load_dotenv()
 

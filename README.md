@@ -50,7 +50,7 @@ You can generate a Soda Straw API key from `https://srikanthganta.straw.demo.sod
 The reset deletes existing `fluid-os-*` straws, discovers tools from `GET /tools`, and creates one Generic API straw per tool prefix. To run only the Soda Straw sync against an already-running backend:
 
 ```sh
-SODA_STRAW_API_KEY=your-soda-straw-api-key scripts/sync_soda_straw_straws.py
+SODA_STRAW_API_KEY=your-soda-straw-api-key backend/scripts/sync_soda_straw_straws.py
 ```
 
 Set `SODA_STRAW_DRY_RUN=1` to preview the reset. Set `SODA_STRAW_DELETE_ALL=1` only if you really want to delete every straw in the workspace before recreating the Fluid OS tools.

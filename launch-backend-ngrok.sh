@@ -163,7 +163,7 @@ main() {
     echo
     echo "Resetting Soda Straw straws from backend tool registry ..."
     FLUID_OS_PUBLIC_URL="$public_url" FLUID_OS_API_KEY="$FLUID_OS_API_KEY" \
-      "$PYTHON_BIN" "$ROOT_DIR/scripts/sync_soda_straw_straws.py"
+      "$PYTHON_BIN" "$ROOT_DIR/backend/scripts/sync_soda_straw_straws.py"
   fi
 
   wait "$backend_pid"
