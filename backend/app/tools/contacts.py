@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/contacts", tags=["contacts"])
+tool_name = "contacts"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class Contact(BaseModel):

@@ -16,7 +16,8 @@ The data can be fake, but the API contract should be real. Use Pydantic models f
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/example", tags=["example"])
+tool_name = "example"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class ExampleRequest(BaseModel):
@@ -51,6 +52,7 @@ def do_thing(payload: ExampleRequest):
 
 1. Create a file in this folder, for example `weather.py`.
 2. Add an `APIRouter`, Pydantic request/response models, and a `capabilities` list.
-3. Add the module to `backend/app/tools/__init__.py`.
+3. Add a `tool_name` that matches the URL prefix.
+4. Add the module to `backend/app/tools/__init__.py`.
 
-The server automatically exposes the capability in `GET /capabilities`, and FastAPI exposes the route schema in `GET /openapi.json`.
+The server automatically exposes the capability in `GET /capabilities`, includes it in `GET /tools`, and creates per-tool metadata at `GET /{tool_name}/health` and `GET /{tool_name}/openapi.json`.

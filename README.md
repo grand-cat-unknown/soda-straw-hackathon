@@ -43,6 +43,24 @@ The main discovery endpoint is:
 http://localhost:8787/capabilities
 ```
 
+Use the shared dev API key for registry and tool calls:
+
+```txt
+X-API-Key: fluid-os-dev-key
+```
+
+Each fake tool can also be registered independently by prefix:
+
+```txt
+http://localhost:8787/contacts/openapi.json
+http://localhost:8787/calendar/openapi.json
+http://localhost:8787/tasks/openapi.json
+http://localhost:8787/shopping/openapi.json
+http://localhost:8787/budget/openapi.json
+http://localhost:8787/messages/openapi.json
+http://localhost:8787/actions/openapi.json
+```
+
 The generated API docs are:
 
 ```txt

@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/messages", tags=["messages"])
+tool_name = "messages"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class MessageDraftRequest(BaseModel):

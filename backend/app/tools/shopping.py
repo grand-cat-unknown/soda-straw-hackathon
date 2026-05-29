@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/shopping", tags=["shopping"])
+tool_name = "shopping"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class ShoppingItem(BaseModel):

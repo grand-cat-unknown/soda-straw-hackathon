@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+tool_name = "tasks"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class TaskCreate(BaseModel):

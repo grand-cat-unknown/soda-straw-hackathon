@@ -4,7 +4,8 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/actions", tags=["actions"])
+tool_name = "actions"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class SimulateActionRequest(BaseModel):

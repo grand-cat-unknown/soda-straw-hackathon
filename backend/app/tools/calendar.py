@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/calendar/events", tags=["calendar"])
+tool_name = "calendar"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class CalendarEventCreate(BaseModel):
@@ -54,12 +55,12 @@ capabilities = [
 ]
 
 
-@router.get("", response_model=CalendarEventsResponse)
+@router.get("/events", response_model=CalendarEventsResponse)
 def list_events():
     return CalendarEventsResponse(events=events)
 
 
-@router.post("", response_model=CalendarEvent, status_code=201)
+@router.post("/events", response_model=CalendarEvent, status_code=201)
 def create_event(payload: CalendarEventCreate):
     if payload.ends_at <= payload.starts_at:
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at.")

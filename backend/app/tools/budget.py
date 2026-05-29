@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/budget", tags=["budget"])
+tool_name = "budget"
+router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
 
 
 class BudgetEstimateRequest(BaseModel):
