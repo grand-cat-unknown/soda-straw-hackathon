@@ -46,7 +46,7 @@ The first live-canvas slice is implemented:
 
 - Added live canvas concepts to `os/lib/workspace/types.ts`.
 - Added shared schemas in `os/lib/workspace/schemas.ts`.
-- Added widget contracts in `os/lib/workspace/contracts.ts`.
+- Added widget-owned contracts with a thin `os/lib/workspace/contracts.ts` compatibility export.
 - Converted `registry.ts` into a compatibility shim over contracts.
 
 ### 3. Runtime foundations

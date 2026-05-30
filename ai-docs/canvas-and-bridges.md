@@ -59,12 +59,36 @@ Shifts from the previous model:
 - Widget user interactions (e.g. clicking a marker) call `emitOutput(nodeId, port, value)`, which writes to `outputs[nodeId][port]`. The runtime cascades downstream, just as today's `runtime.ts:22-39` does — but now persistently, against the store.
 - `meta.revision` increments on every mutation. The cycle guard uses it (see §4).
 
-### 2. Standardized widget I/O contract
+### 2. Widget-owned contract and renderer
 
-Each widget file co-locates its contract:
+Each widget owns its own design box. That means every widget type must expose its own contract, render metadata, and widget-specific UI behavior from widget-adjacent modules. The generic canvas renderer may host the widget, but it must not encode widget-specific behavior in a central `switch`.
+
+Required widget-owned pieces:
+
+- **Input ports** — named inputs, JSON Schemas, descriptions, optionality.
+- **Output ports** — named outputs, JSON Schemas, descriptions.
+- **Render contract** — renderer id, default/min layout, chrome preference, editability, and output action affordances.
+- **Renderer component** — the actual UI for the widget's own input shape.
+- **Output actions** — user interactions that emit this widget's own output ports.
+
+Forbidden widget coupling:
+
+- A widget must not know which other widget consumes its output.
+- A widget must not know which other widget produced its input.
+- A widget must not translate another widget's payload shape into its own shape.
+- A generic renderer must not hardcode per-widget render bodies.
+
+Allowed shared knowledge:
+
+- Shared domain payload types like `Place`, `Route`, or `WorkspaceTable` can live in the workspace type layer.
+- Cross-widget translation belongs only in bridges and transforms.
+- The canvas renderer can provide generic host chrome, input editing, layout, output inspection, and remove/edit controls.
+- The widget registry can aggregate widget-owned contracts and renderers, but it should not define the widget behavior itself.
+
+Example widget-owned contract:
 
 ```ts
-// os/components/widgets/MapWidget.tsx
+// os/components/widgets/MapWidget.contract.ts
 export const MapWidgetContract: WidgetContract = {
   type: "map",
   title: "Map",
@@ -76,6 +100,16 @@ export const MapWidgetContract: WidgetContract = {
   outputs: {
     selectedMarker: { schema: PlaceSchema, description: "Marker the user last clicked." },
     visibleOrder:   { schema: PlaceArraySchema, description: "Markers in current draw order." },
+  },
+  render: {
+    renderer: "map",
+    defaultLayout: { x: 0, y: 0, w: 8, h: 6 },
+    minLayout: { w: 5, h: 4 },
+    chrome: "card",
+    editable: true,
+    outputActions: {
+      selectedMarker: "Marker click or marker selection buttons",
+    },
   },
 };
 ```
@@ -97,10 +131,35 @@ type WidgetContract = {
   description: string;
   inputs:  Record<string, WidgetPortContract>;
   outputs: Record<string, WidgetPortContract>;
+  render: WidgetRenderContract;
+};
+
+type WidgetRenderContract = {
+  renderer: string;
+  defaultLayout: CanvasLayout;
+  minLayout?: Partial<CanvasLayout>;
+  chrome?: "card" | "panel" | "bare";
+  editable?: boolean;
+  outputActions?: Record<Port, string>;
 };
 ```
 
-A central `os/lib/workspace/contracts.ts` imports every widget module and aggregates their contracts. This replaces the hardcoded `registry.ts`.
+Widget-owned render component example:
+
+```tsx
+// os/components/widgets/MapWidget.tsx
+export function MapCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
+  const markers = (input.markers as Place[] | undefined) ?? [];
+  return (
+    <MapWidget
+      markers={markers}
+      onMarkerClick={(marker) => emitOutput("selectedMarker", marker)}
+    />
+  );
+}
+```
+
+`os/components/widgets/widget-contracts.ts` aggregates widget-owned contracts. `os/components/widgets/widget-renderers.ts` maps widget type to widget-owned renderers. `os/lib/workspace/contracts.ts` is a thin re-export for server-safe workspace code. This keeps the canvas generic while letting each widget fully describe how it should be hosted and operated.
 
 **Why JSON Schema?** LLMs already read JSON Schema natively. The agent prompts can include port schemas verbatim — no translation layer. `ajv` provides the runtime validator for values flowing across bridges.
 
@@ -186,18 +245,21 @@ Async transforms are intentionally out of scope for v1. Real geocoding or other 
 ## File map
 
 **Modified:**
-- `os/lib/workspace/types.ts` — add `WidgetContract`, `WidgetPortContract`, `Bridge`, `TransformRef`. Keep current types for back-compat during migration.
+- `os/lib/workspace/types.ts` — add `WidgetContract`, `WidgetPortContract`, `WidgetRenderContract`, `Bridge`, `TransformRef`. Keep current types for back-compat during migration.
 - `os/lib/workspace/runtime.ts` — add cycle guard (revision + depth).
 - `os/lib/workspace/transforms.ts` — expand per §5.
 - `os/lib/workspace/trace-adapters.ts` — emit *mutations against the store* instead of building a fresh graph each call.
-- `os/lib/workspace/registry.ts` — deprecate; re-export from `contracts.ts` for back-compat.
-- `os/components/widgets/*.tsx` — each exports its `Contract`.
-- `os/components/widgets/WorkspaceRenderer.tsx` — subscribes to store.
+- `os/lib/workspace/registry.ts` — deprecate; re-export from widget-owned contracts for back-compat.
+- `os/lib/workspace/contracts.ts` — thin server-safe re-export over widget-owned contracts.
+- `os/components/widgets/*.tsx` — each owns its widget-specific renderer behavior.
+- `os/components/widgets/*.contract.ts` — each owns its widget contract and render metadata.
+- `os/components/widgets/widget-contracts.ts` — aggregate widget-owned contracts only.
+- `os/components/widgets/widget-renderers.ts` — map widget type to widget-owned renderer only.
+- `os/components/widgets/WorkspaceRenderer.tsx` — subscribes to store and hosts widgets through the renderer registry; it must not hardcode widget render bodies.
 - `os/app/page.tsx` — drop per-render `buildWorkspace`; dispatch into store.
 
 **New:**
 - `os/lib/workspace/store.ts` — Zustand SSoT.
-- `os/lib/workspace/contracts.ts` — central contract registry.
 - `os/lib/workspace/bridges.ts` — bridge CRUD + compat check.
 - `os/lib/workspace/schemas.ts` — shared JSON Schemas (Place, Route, TableRow, …).
 - `ai-docs/canvas-and-bridges.md` — this doc.
@@ -210,7 +272,7 @@ Each phase ships independently and leaves the OS in a working state.
 
 **Phase 1 — Canvas as SSoT (no visible behavior change).** Add Zustand store; refactor `page.tsx` to dispatch trace events; `WorkspaceRenderer` subscribes to store. Validation: existing scenarios render identically; user-clicked state survives a new trace.
 
-**Phase 2 — Widget contracts.** Add `WidgetContract` type + per-widget exports + `contracts.ts` aggregator. `registry.ts` becomes a thin shim. Validation: `tsc` clean; runtime behavior unchanged.
+**Phase 2 — Widget contracts.** Add `WidgetContract` + `WidgetRenderContract` types. Each widget owns a `*.contract.ts` sidecar and a widget-owned renderer component. `contracts.ts` and `registry.ts` become thin shims over widget-owned registries. Validation: `tsc` clean; runtime behavior unchanged.
 
 **Phase 3 — Bridge API + cycle guard.** `bridges.ts` with `addBridge`/`removeBridge`/compat-check. Cycle guard in `runtime.ts`. Existing tool-emitted bridges flow through the new API. Validation: existing list↔map scenarios update; a hand-crafted `A→B→C→A` chain stops cleanly.
 
@@ -234,6 +296,8 @@ Each phase ships independently and leaves the OS in a working state.
 | 6 | v1 awareness is chat-triggered snapshots | Feels like a state-aware agent without requiring a background daemon yet. |
 | 7 | Trace replay is idempotent by applied trace IDs | Prevents duplicate widgets/bridges when traces replay. |
 | 8 | Async transforms are out of scope for v1 | Keeps bridge runtime state simple until pending/error UX is designed. |
+| 9 | Widgets own their design box | A widget owns its contract, render metadata, renderer component, and output actions; bridges/transforms own all cross-widget translation. |
+| 10 | Generic renderer hosts, never specializes | The canvas renderer may provide chrome/layout/editing/output inspection, but widget render bodies live in widget modules and are selected through a registry. |
 
 ## Open
 
