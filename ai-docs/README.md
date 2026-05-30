@@ -64,5 +64,7 @@ SODA_STRAW_API_KEY=your-soda-straw-api-key backend/scripts/sync_soda_straw_straw
 ## Docs In This Folder
 
 - `backend-capabilities.md` - current exposed backend tools and endpoints.
+- `why-fluid-os-stands-out.md` - product and architecture narrative explaining
+  what makes Fluid OS unique.
 - `soda-straw-sync.md` - Soda Straw registration/reset workflow.
 - `maintenance.md` - checklist for keeping these docs and integrations current.

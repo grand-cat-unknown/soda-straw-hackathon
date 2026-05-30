@@ -4,6 +4,9 @@ Fluid OS is an experiment in where operating systems go next: away from rigid,
 predefined apps and toward intent-shaped workspaces that form around what the
 user is trying to do.
 
+For the fuller product and architecture narrative, read
+[`../ai-docs/why-fluid-os-stands-out.md`](../ai-docs/why-fluid-os-stands-out.md).
+
 Most software today is organized as fixed apps. Each app ships with a fixed set
 of screens, workflows, and assumptions about what the user might want. As agents
 become more capable, that model starts to feel backwards. The durable layer
@@ -15,6 +18,11 @@ Fluid OS explores that model. It uses Soda Straw as the capability backbone: the
 place where MCPs, APIs, databases, and external tools are connected, scoped, and
 made available. On top of that, Fluid OS provides a live operating surface where
 an agent can compose the right UI for the current task.
+
+The prototype keeps the idea intentionally modular. The interface can be
+ephemeral while secrets, access control, authenticated tool calls, and backend
+state stay behind the server/Soda Straw/MCP boundary. The canvas can only do
+what the granted capabilities allow it to do.
 
 ```txt
 User intent -> Soda Straw capabilities -> Agent workspace plan -> Widgets + bridges -> Actions
