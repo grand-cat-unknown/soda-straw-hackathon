@@ -1,5 +1,7 @@
 import type {
   CanvasBridgeSpec,
+  CanvasLayout,
+  CanvasWidgetSpec,
   ToolCallTrace,
   WidgetEdge,
   WidgetNode,
@@ -7,6 +9,7 @@ import type {
   WorkspaceGraph,
   WorkspaceTable,
 } from "@/lib/workspace/types";
+import { canvasStore } from "@/lib/workspace/store";
 
 const TABLE_TOOL_NAMES = new Set([
   "fluid-os-tables_tables_create",
@@ -29,6 +32,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function portNodeId(ref: CanvasBridgeSpec["from"]): string {
   return ref.nodeId ?? ref.node_id ?? "";
+}
+
+function defaultLayout(index: number): CanvasLayout {
+  return {
+    x: index % 2 === 0 ? 0 : 6,
+    y: Math.floor(index / 2) * 4,
+    w: 6,
+    h: 4,
+  };
 }
 
 function canvasToGraph(canvas: WorkspaceCanvas): WorkspaceGraph {
@@ -141,4 +153,94 @@ export function buildWorkspaceCanvases(traces: ToolCallTrace[]): WorkspaceCanvas
   }
 
   return canvases;
+}
+
+function addCanvasWidgetFromSpec(
+  trace: ToolCallTrace,
+  widget: CanvasWidgetSpec,
+  index: number,
+): void {
+  canvasStore.applyTraceMutation({
+    operationId: `${trace.id}:widget:${widget.id || index}`,
+    apply: () => {
+      canvasStore.addWidget({
+        id: widget.id || `${trace.id}:widget:${index}`,
+        type: widget.type,
+        title: widget.title,
+        input: widget.input ?? {},
+        layout: defaultLayout(index),
+        source: "tool",
+      });
+    },
+  });
+}
+
+function addCanvasBridgeFromSpec(
+  trace: ToolCallTrace,
+  bridge: CanvasBridgeSpec,
+  index: number,
+): void {
+  canvasStore.applyTraceMutation({
+    operationId: `${trace.id}:bridge:${bridge.id || index}`,
+    apply: () => {
+      canvasStore.addBridge({
+        id: bridge.id || `${trace.id}:bridge:${index}`,
+        from: { nodeId: portNodeId(bridge.from), port: bridge.from.port },
+        to: { nodeId: portNodeId(bridge.to), port: bridge.to.port },
+        transform: bridge.transform ?? undefined,
+        createdBy: "tool",
+      });
+    },
+  });
+}
+
+export function applyToolTraceToCanvasStore(trace: ToolCallTrace): void {
+  if (trace.error || !trace.output) return;
+  const output = trace.output;
+
+  if (isRecord(output) && "id" in output && "columns" in output) {
+    const table = output as unknown as WorkspaceTable;
+    canvasStore.applyTraceMutation({
+      operationId: `${trace.id}:table:${table.id}`,
+      apply: () => {
+        canvasStore.addWidget({
+          id: `table:${table.id}`,
+          type: "table",
+          title: table.name,
+          input: { table },
+          source: "tool",
+        });
+      },
+    });
+  }
+
+  if (
+    (CANVAS_TOOL_NAMES.has(trace.name) || matches(trace.name, ["canvas_render", "canvas_get"])) &&
+    isRecord(output) &&
+    "layout" in output
+  ) {
+    const canvas = output as unknown as WorkspaceCanvas;
+    const widgets = Array.isArray(canvas.widgets) ? canvas.widgets : [];
+
+    if (widgets.length === 0) {
+      canvasStore.applyTraceMutation({
+        operationId: `${trace.id}:canvas-summary:${canvas.id}`,
+        apply: () => {
+          canvasStore.addWidget({
+            id: `canvas:${canvas.id}`,
+            type: "canvas-summary",
+            title: canvas.title,
+            input: { canvas },
+            source: "tool",
+          });
+        },
+      });
+      return;
+    }
+
+    widgets.forEach((widget, index) => addCanvasWidgetFromSpec(trace, widget, index));
+    (canvas.bridges ?? []).forEach((bridge, index) =>
+      addCanvasBridgeFromSpec(trace, bridge, index),
+    );
+  }
 }

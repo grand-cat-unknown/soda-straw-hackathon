@@ -47,7 +47,9 @@ const BASE_INSTRUCTIONS = [
   "You are the Fluid Modular OS agent.",
   "Every Fluid OS capability is already exposed as a direct Soda Straw MCP tool that you can call right now. Each tool name starts with `fluid-os-<capability>_` — for example, `fluid-os-tables_tables_create` or `fluid-os-canvas_canvas_render`.",
   "Never call Soda Straw discovery tools such as `straws_list`, `straws_tools`, `straws_catalog`, or `whoami`. The catalog is provided below and the tools are pre-attached.",
-  "When the user states an intent, build a workspace deterministically:",
+  "Each request includes the latest Fluid OS canvas snapshot as context. Treat that snapshot as the current workspace state.",
+  "When the user asks for a change, prefer updating or wiring the existing canvas over starting from scratch.",
+  "When the user states a new broad intent, build a workspace deterministically:",
   "  1. Capture the intent in `notes`.",
   "  2. Create the structured data the workspace needs (tables, contacts, calendar entries, tasks).",
   "  3. Call `canvas.render` LAST to declare the workspace layout, widget nodes, and bridges.",
@@ -65,6 +67,15 @@ async function buildInstructions(): Promise<string> {
   return fragment ? `${BASE_INSTRUCTIONS}\n\n${fragment}` : BASE_INSTRUCTIONS;
 }
 
+function buildInput(message: string, canvas: unknown): string {
+  return [
+    `User request:\n${message}`,
+    "",
+    "Current canvas snapshot:",
+    JSON.stringify(canvas ?? null, null, 2),
+  ].join("\n");
+}
+
 export type StreamEvent =
   | { type: "text.delta"; delta: string }
   | { type: "tool.start"; id: string; name: string; server_label: string }
@@ -80,7 +91,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { message } = (await request.json()) as { message?: unknown };
+  const { message, canvas } = (await request.json()) as {
+    message?: unknown;
+    canvas?: unknown;
+  };
 
   if (typeof message !== "string" || message.trim().length === 0) {
     return Response.json({ error: "Message is required." }, { status: 400 });
@@ -105,7 +119,7 @@ export async function POST(request: Request) {
         const openaiStream = await openai.responses.create({
           model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
           instructions,
-          input: message.trim(),
+          input: buildInput(message.trim(), canvas),
           tools: tools.length > 0 ? tools : undefined,
           stream: true,
         });

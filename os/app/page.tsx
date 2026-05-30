@@ -23,7 +23,10 @@ import { ActivityTicker } from "@/components/widgets/ActivityTicker";
 import { CanvasHost } from "@/components/widgets/CanvasHost";
 import { ToolTrace } from "@/components/widgets/ToolTrace";
 import {
+  applyToolTraceToCanvasStore,
   buildWorkspace,
+  canvasStore,
+  getCanvasStateForAgent,
   type PendingCall,
   type ToolCallTrace,
 } from "@/lib/workspace";
@@ -71,6 +74,7 @@ export default function Home() {
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    canvasStore.resetCanvas();
     setIntent("");
     setReply("");
     setTraces([]);
@@ -100,7 +104,10 @@ export default function Home() {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify({
+            message: trimmed,
+            canvas: getCanvasStateForAgent(),
+          }),
           signal: controller.signal,
         });
 
@@ -170,6 +177,7 @@ export default function Home() {
       case "tool.done":
         setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
         setTraces((prev) => [...prev, event.trace]);
+        applyToolTraceToCanvasStore(event.trace);
         break;
       case "error":
         setError(event.message);
@@ -309,7 +317,7 @@ export default function Home() {
         ) : null}
 
         <div className="fluid-enter">
-          <CanvasHost workspace={workspace} />
+          <CanvasHost />
         </div>
 
         <ToolTrace traces={traces} />

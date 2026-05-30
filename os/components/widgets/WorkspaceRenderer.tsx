@@ -12,28 +12,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { widgetRegistry, useWorkspaceRuntime } from "@/lib/workspace";
+import { canvasStore, useCanvasState, widgetRegistry } from "@/lib/workspace";
 import type {
   WidgetInput,
   WidgetNode,
   WorkspaceCanvas,
-  WorkspaceGraph,
   WorkspaceTable,
 } from "@/lib/workspace";
 
-export function WorkspaceRenderer({ graph }: { graph: WorkspaceGraph }) {
-  const { inputs, emitOutput } = useWorkspaceRuntime(graph);
+export function WorkspaceRenderer() {
+  const canvas = useCanvasState();
+  const nodes = Object.values(canvas.nodes);
 
-  if (graph.nodes.length === 0) return null;
+  if (nodes.length === 0) return null;
 
   return (
     <div className="space-y-4">
-      {graph.nodes.map((node) => (
+      {nodes.map((node) => (
         <WidgetFrame key={node.id} node={node}>
           <WidgetBody
             node={node}
-            input={inputs[node.id] ?? node.input}
-            emitOutput={(port, value) => emitOutput(node.id, port, value)}
+            input={node.input}
+            emitOutput={(port, value) =>
+              canvasStore.emitOutput(node.id, port, value)
+            }
           />
         </WidgetFrame>
       ))}
