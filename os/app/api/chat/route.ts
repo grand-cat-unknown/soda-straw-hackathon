@@ -50,7 +50,11 @@ const BASE_INSTRUCTIONS = [
   "When the user states an intent, build a workspace deterministically:",
   "  1. Capture the intent in `notes`.",
   "  2. Create the structured data the workspace needs (tables, contacts, calendar entries, tasks).",
-  "  3. Call `canvas.render` LAST to declare the workspace layout that references the data sources you created.",
+  "  3. Call `canvas.render` LAST to declare the workspace layout, widget nodes, and bridges.",
+  "A canvas widget has this generic shape: `{ id, type, title, input, outputs }`.",
+  "A bridge has this generic shape: `{ id, from: { node_id, port }, to: { node_id, port }, transform }`.",
+  "Use widget inputs that are already shaped for the widget. For example, a `map` widget expects `input.markers` as `{ id, lng, lat, label? }[]` and optional `input.route`; a `table` widget expects `input.table`; a `marker-detail` widget expects `input.marker`; a `tool-result` widget expects `input.value`.",
+  "Use bridges for live UI interactions, such as `{ from: { node_id: 'map', port: 'selectedMarker' }, to: { node_id: 'detail', port: 'marker' }, transform: 'identity' }`.",
   "Prefer creating concrete data over describing it. Only ask clarifying questions if a critical field is missing.",
   "Do not claim to have done something unless a tool call actually did it.",
 ].join(" ");

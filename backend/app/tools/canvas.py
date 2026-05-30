@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 tool_name = "canvas"
 router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
@@ -23,11 +23,35 @@ class ActionSpec(BaseModel):
     params: dict[str, Any] | None = None
 
 
+class WidgetSpec(BaseModel):
+    id: str
+    type: str
+    title: str
+    input: dict[str, Any] = Field(default_factory=dict)
+    outputs: list[str] = Field(default_factory=list)
+
+
+class WidgetPortRef(BaseModel):
+    node_id: str
+    port: str
+
+
+class BridgeSpec(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    from_: WidgetPortRef = Field(..., alias="from")
+    to: WidgetPortRef
+    transform: str | None = None
+
+
 class CanvasRender(BaseModel):
     title: str
     layout: str
     data_sources: list[DataSourceRef] = Field(default_factory=list)
     actions: list[ActionSpec] = Field(default_factory=list)
+    widgets: list[WidgetSpec] = Field(default_factory=list)
+    bridges: list[BridgeSpec] = Field(default_factory=list)
     linked_intent_id: str | None = None
 
 
@@ -37,6 +61,8 @@ class Canvas(BaseModel):
     layout: str
     data_sources: list[DataSourceRef]
     actions: list[ActionSpec]
+    widgets: list[WidgetSpec] = Field(default_factory=list)
+    bridges: list[BridgeSpec] = Field(default_factory=list)
     linked_intent_id: str | None = None
     created_at: str
 
@@ -53,7 +79,7 @@ capabilities = [
         "id": "canvas.render",
         "tool": "canvas",
         "name": "Render Canvas",
-        "description": "Create a temporary view (dashboard, board, timeline, map, checklist, table, comparison, calendar) over data sources.",
+        "description": "Create a temporary workspace canvas with generic widget nodes and bridges between widget outputs and inputs.",
         "method": "POST",
         "endpoint": "/canvas/render",
         "input_model": "CanvasRender",

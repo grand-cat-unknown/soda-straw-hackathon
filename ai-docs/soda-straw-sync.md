@@ -10,10 +10,16 @@ Expected straw names after sync:
 - `fluid-os-contacts`
 - `fluid-os-calendar`
 - `fluid-os-tasks`
-- `fluid-os-shopping`
-- `fluid-os-budget`
+- `fluid-os-tables`
+- `fluid-os-notes`
+- `fluid-os-files`
+- `fluid-os-search`
+- `fluid-os-maps`
+- `fluid-os-calculator`
+- `fluid-os-forms`
+- `fluid-os-canvas`
 - `fluid-os-messages`
-- `fluid-os-actions`
+- `fluid-os-shadcn`
 
 Each straw points at the static ngrok domain:
 

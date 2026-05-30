@@ -2,7 +2,7 @@
 
 This is the local FastAPI capability server for the hackathon prototype.
 
-It behaves like a small local API/MCP hub: the OS can ask what capabilities exist, then call endpoints for contacts, calendar events, tasks, budgets, shopping, and messages.
+It behaves like a small local API/MCP hub: the OS can ask what capabilities exist, then call endpoints for contacts, calendar events, tasks, tables, notes, files, search, maps, calculator, forms, canvas, messages, and shadcn-backed UI components.
 
 The data is fake, but the API should behave like a real service:
 
@@ -117,14 +117,26 @@ Tool metadata, with `X-API-Key`:
 - `GET /calendar/openapi.json`
 - `GET /tasks/health`
 - `GET /tasks/openapi.json`
-- `GET /shopping/health`
-- `GET /shopping/openapi.json`
-- `GET /budget/health`
-- `GET /budget/openapi.json`
+- `GET /tables/health`
+- `GET /tables/openapi.json`
+- `GET /notes/health`
+- `GET /notes/openapi.json`
+- `GET /files/health`
+- `GET /files/openapi.json`
+- `GET /search/health`
+- `GET /search/openapi.json`
+- `GET /maps/health`
+- `GET /maps/openapi.json`
+- `GET /calculator/health`
+- `GET /calculator/openapi.json`
+- `GET /forms/health`
+- `GET /forms/openapi.json`
+- `GET /canvas/health`
+- `GET /canvas/openapi.json`
 - `GET /messages/health`
 - `GET /messages/openapi.json`
-- `GET /actions/health`
-- `GET /actions/openapi.json`
+- `GET /shadcn/health`
+- `GET /shadcn/openapi.json`
 
 Tool calls, with `X-API-Key`:
 
@@ -135,10 +147,12 @@ Tool calls, with `X-API-Key`:
 - `GET /tasks`
 - `POST /tasks`
 - `PATCH /tasks/{task_id}`
-- `GET /shopping/search?q=snacks`
-- `POST /budget/estimate`
+- `POST /tables`
+- `POST /maps/places/search`
+- `POST /calculator/compute`
+- `POST /canvas/render`
 - `POST /messages/draft`
-- `POST /actions/simulate`
+- `GET /shadcn/tools`
 
 For a hub or reverse proxy, each tool can be registered with:
 

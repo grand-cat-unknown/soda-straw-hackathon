@@ -63,10 +63,16 @@ This prints public URLs for:
 https://uncombed-wand-unfitted.ngrok-free.dev/contacts/openapi.json
 https://uncombed-wand-unfitted.ngrok-free.dev/calendar/openapi.json
 https://uncombed-wand-unfitted.ngrok-free.dev/tasks/openapi.json
-https://uncombed-wand-unfitted.ngrok-free.dev/shopping/openapi.json
-https://uncombed-wand-unfitted.ngrok-free.dev/budget/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/tables/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/notes/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/files/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/search/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/maps/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/calculator/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/forms/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/canvas/openapi.json
 https://uncombed-wand-unfitted.ngrok-free.dev/messages/openapi.json
-https://uncombed-wand-unfitted.ngrok-free.dev/actions/openapi.json
+https://uncombed-wand-unfitted.ngrok-free.dev/shadcn/openapi.json
 ```
 
 Then open:
@@ -93,10 +99,16 @@ Each fake tool can also be registered independently by prefix:
 http://localhost:8787/contacts/openapi.json
 http://localhost:8787/calendar/openapi.json
 http://localhost:8787/tasks/openapi.json
-http://localhost:8787/shopping/openapi.json
-http://localhost:8787/budget/openapi.json
+http://localhost:8787/tables/openapi.json
+http://localhost:8787/notes/openapi.json
+http://localhost:8787/files/openapi.json
+http://localhost:8787/search/openapi.json
+http://localhost:8787/maps/openapi.json
+http://localhost:8787/calculator/openapi.json
+http://localhost:8787/forms/openapi.json
+http://localhost:8787/canvas/openapi.json
 http://localhost:8787/messages/openapi.json
-http://localhost:8787/actions/openapi.json
+http://localhost:8787/shadcn/openapi.json
 ```
 
 The generated API docs are:

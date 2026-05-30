@@ -74,29 +74,57 @@ Capability IDs:
 - `tasks.create`
 - `tasks.update`
 
-### shopping
+### tables
 
-Purpose: fake shopping catalog search.
-
-Endpoints:
-
-- `GET /shopping/search` - search products by name or category.
-
-Capability IDs:
-
-- `shopping.search`
-
-### budget
-
-Purpose: fake budget estimation.
+Purpose: structured trackers and lists.
 
 Endpoints:
 
-- `POST /budget/estimate` - estimate cost from guest count, per-guest spend, categories, and currency.
+- `GET /tables` - list tables.
+- `POST /tables` - create a typed table.
+- `GET /tables/{table_id}` - fetch a table and rows.
+- `POST /tables/{table_id}/rows` - append a row.
+- `GET /tables/{table_id}/rows` - filter, sort, or group rows.
 
 Capability IDs:
 
-- `budget.estimate`
+- `tables.list`
+- `tables.create`
+- `tables.get`
+- `tables.add_row`
+- `tables.query`
+
+### maps
+
+Purpose: place search, geocoding, directions, and travel-time estimates.
+
+Endpoints:
+
+- `POST /maps/geocode` - resolve a place or address.
+- `POST /maps/places/search` - search places with optional proximity.
+- `POST /maps/directions` - return a route geometry.
+- `POST /maps/travel-time` - estimate distance and duration.
+
+Capability IDs:
+
+- `maps.geocode`
+- `maps.search_places`
+- `maps.directions`
+- `maps.estimate_travel_time`
+
+### calculator
+
+Purpose: deterministic math and option scoring.
+
+Endpoints:
+
+- `POST /calculator/compute` - evaluate a numeric expression.
+- `POST /calculator/score` - score options from weighted criteria.
+
+Capability IDs:
+
+- `calculator.compute`
+- `calculator.score_options`
 
 ### messages
 
@@ -110,17 +138,23 @@ Capability IDs:
 
 - `messages.draft`
 
-### actions
+### canvas
 
-Purpose: debug/simulation endpoint for action execution.
+Purpose: declare a generated workspace layout over tool-created data.
 
 Endpoints:
 
-- `POST /actions/simulate` - pretend to execute a tool call and return a traceable result.
+- `POST /canvas/render` - create a temporary canvas spec.
+- `GET /canvas` - list canvases.
+- `GET /canvas/{canvas_id}` - fetch a canvas spec.
+- `DELETE /canvas/{canvas_id}` - discard a canvas.
 
 Capability IDs:
 
-- `actions.simulate`
+- `canvas.render`
+- `canvas.list`
+- `canvas.get`
+- `canvas.delete`
 
 ## Adding A Tool
 

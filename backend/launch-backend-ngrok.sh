@@ -96,7 +96,7 @@ wait_for_public_url() {
 
 print_registry() {
   local public_url="$1"
-  local tools=(contacts calendar tasks shopping budget messages actions)
+  local tools=(contacts calendar tasks tables notes files search maps calculator forms canvas messages shadcn)
 
   echo
   echo "Backend is local:  http://$BACKEND_HOST:$BACKEND_PORT"
