@@ -116,6 +116,40 @@ def request_json(
     headers: dict[str, str] | None = None,
     body: dict[str, Any] | None = None,
 ) -> Any:
+    # Validate URL to prevent SSRF attacks
+    if "/../" in url or "/.." in url:
+        raise ValueError("Invalid URL")
+    
+    try:
+        parsed = urllib.parse.urlparse(url)
+        
+        # Validate protocol
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("Invalid URL")
+        
+        # Validate host exists
+        if not parsed.hostname:
+            raise ValueError("Invalid URL")
+        
+        # Block localhost and private addresses
+        host = parsed.hostname.lower().rstrip(".")
+        if host in BLOCKED_HOSTS or host.endswith(BLOCKED_HOST_SUFFIXES):
+            raise ValueError("Invalid URL")
+        
+        # Block private IP addresses
+        try:
+            address = ipaddress.ip_address(host)
+            if not address.is_global:
+                raise ValueError("Invalid URL")
+        except ValueError:
+            # Not an IP address, continue with hostname validation
+            pass
+        
+        # Reconstruct URL to ensure it's properly formatted
+        url = urllib.parse.urlunparse(parsed)
+    except Exception:
+        raise ValueError("Invalid URL")
+    
     payload = None
     request_headers = dict(headers or {})
     if body is not None:
