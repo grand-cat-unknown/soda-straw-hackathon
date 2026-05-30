@@ -59,5 +59,9 @@ export const TableWidgetContract: WidgetContract = {
       capabilityId: "tables.add_row",
       refreshBindings: ["table"],
     },
+    deleteRows: {
+      capabilityId: "tables.delete_rows",
+      refreshBindings: ["table"],
+    },
   },
 };

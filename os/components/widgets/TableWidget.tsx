@@ -47,6 +47,15 @@ export function TableCanvasWidget({
               })
           : undefined
       }
+      onDeleteRows={
+        node.actions?.deleteRows
+          ? (rowIds) =>
+              runAction("deleteRows", {
+                table_id: renderedTable.id,
+                row_ids: rowIds,
+              })
+          : undefined
+      }
     />
   ) : (
     <p className="text-sm text-muted-foreground">No table input.</p>
@@ -58,17 +67,20 @@ export function TableWidget({
   variant = "card",
   onSelectedRowsChange,
   onAddRow,
+  onDeleteRows,
 }: {
   table: WorkspaceTable;
   variant?: "card" | "embedded";
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
   onAddRow?: (values?: Record<string, unknown>) => Promise<unknown>;
+  onDeleteRows?: (rowIds: string[]) => Promise<unknown>;
 }) {
   const content = (
     <TableContent
       table={table}
       onSelectedRowsChange={onSelectedRowsChange}
       onAddRow={onAddRow}
+      onDeleteRows={onDeleteRows}
     />
   );
 
@@ -90,10 +102,12 @@ function TableContent({
   table,
   onSelectedRowsChange,
   onAddRow,
+  onDeleteRows,
 }: {
   table: WorkspaceTable;
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
   onAddRow?: (values?: Record<string, unknown>) => Promise<unknown>;
+  onDeleteRows?: (rowIds: string[]) => Promise<unknown>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Record<string, true>>({});
   const [newRow, setNewRow] = useState<Record<string, string>>({});
@@ -134,6 +148,30 @@ function TableContent({
     onSelectedRowsChange?.([]);
   }
 
+  async function deleteSelected() {
+    if (!onDeleteRows) return;
+    const ids = Object.keys(selectedIds);
+    if (ids.length === 0) return;
+    await onDeleteRows(ids);
+    setSelectedIds({});
+    onSelectedRowsChange?.([]);
+  }
+
+  async function deleteRow(rowId: string) {
+    if (!onDeleteRows) return;
+    await onDeleteRows([rowId]);
+    if (selectedIds[rowId]) {
+      const next = { ...selectedIds };
+      delete next[rowId];
+      setSelectedIds(next);
+      onSelectedRowsChange?.(table.rows.filter((row) => next[row.id]));
+    }
+  }
+
+  const showActionColumn = Boolean(onDeleteRows);
+  const extraColumns =
+    (onSelectedRowsChange ? 1 : 0) + (showActionColumn ? 1 : 0);
+
   return (
     <div className="space-y-2">
       {onSelectedRowsChange ? (
@@ -158,6 +196,18 @@ function TableContent({
             >
               Clear
             </Button>
+            {onDeleteRows ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void deleteSelected()}
+                disabled={selectedRows.length === 0}
+                className="text-destructive hover:text-destructive"
+              >
+                Delete selected
+              </Button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -177,13 +227,18 @@ function TableContent({
                 </span>
               </TableHead>
             ))}
+            {showActionColumn ? (
+              <TableHead className="w-8">
+                <span className="sr-only">Row actions</span>
+              </TableHead>
+            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
           {table.rows.length === 0 && !onAddRow ? (
             <TableRow>
               <TableCell
-                colSpan={table.columns.length + (onSelectedRowsChange ? 1 : 0)}
+                colSpan={table.columns.length + extraColumns}
                 className="text-sm text-muted-foreground"
               >
                 No rows yet.
@@ -209,6 +264,20 @@ function TableContent({
                   {formatValue(row.values[col.name])}
                 </TableCell>
               ))}
+              {showActionColumn ? (
+                <TableCell className="w-8 py-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void deleteRow(row.id)}
+                    aria-label={`Delete ${row.id}`}
+                    className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                  >
+                    ×
+                  </Button>
+                </TableCell>
+              ) : null}
             </TableRow>
           ))}
           {onAddRow ? (
@@ -232,6 +301,7 @@ function TableContent({
                   />
                 </TableCell>
               ))}
+              {showActionColumn ? <TableCell /> : null}
             </TableRow>
           ) : null}
         </TableBody>

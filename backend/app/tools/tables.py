@@ -35,6 +35,15 @@ class RowAdd(BaseModel):
     values: dict[str, Any]
 
 
+class RowDelete(BaseModel):
+    row_ids: list[str]
+
+
+class RowDeleteResponse(BaseModel):
+    table_id: str
+    deleted_ids: list[str]
+
+
 class TablesResponse(BaseModel):
     tables: list[Table]
 
@@ -106,6 +115,17 @@ capabilities = [
         "tags": ["structured", "data", "action"],
     },
     {
+        "id": "tables.delete_rows",
+        "tool": "tables",
+        "name": "Delete Rows",
+        "description": "Delete one or more rows from a table by row id.",
+        "method": "POST",
+        "endpoint": "/tables/{table_id}/rows/delete",
+        "input_model": "RowDelete",
+        "output_model": "RowDeleteResponse",
+        "tags": ["structured", "data", "action"],
+    },
+    {
         "id": "tables.query",
         "tool": "tables",
         "name": "Query Rows",
@@ -154,6 +174,15 @@ def add_row(table_id: str, payload: RowAdd):
     row = Row(id=f"row_{len(table.rows) + 1:03d}", values=payload.values)
     table.rows.append(row)
     return row
+
+
+@router.post("/{table_id}/rows/delete", response_model=RowDeleteResponse)
+def delete_rows(table_id: str, payload: RowDelete):
+    table = _find_table(table_id)
+    to_delete = set(payload.row_ids)
+    deleted = [row.id for row in table.rows if row.id in to_delete]
+    table.rows = [row for row in table.rows if row.id not in to_delete]
+    return RowDeleteResponse(table_id=table_id, deleted_ids=deleted)
 
 
 @router.get("/{table_id}/rows", response_model=RowsResponse)
