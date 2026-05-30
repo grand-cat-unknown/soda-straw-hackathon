@@ -1,6 +1,6 @@
 "use client";
 
-import { validateBridge } from "@/lib/workspace/bridges";
+import { suggestBridges, validateBridge } from "@/lib/workspace/bridges";
 import { widgetContracts, getWidgetContract } from "@/lib/workspace/contracts";
 import { canvasStore, getCanvasStateForAgent } from "@/lib/workspace/store";
 import {
@@ -69,6 +69,37 @@ export function executeCanvasTool(
   args: Record<string, unknown>,
 ): unknown {
   switch (name) {
+    case "canvas_announce_plan": {
+      // Pure UI tool — the plan is rendered in chat by the client.
+      // Echo it back so the agent has a structured acknowledgement.
+      return {
+        ok: true,
+        plan: {
+          intent: typeof args.intent === "string" ? args.intent : "",
+          widgets: Array.isArray(args.widgets) ? args.widgets : [],
+          bridges: Array.isArray(args.bridges) ? args.bridges : [],
+          notes: typeof args.notes === "string" ? args.notes : undefined,
+        },
+      };
+    }
+
+    case "canvas_list_bridge_suggestions": {
+      const nodeId = typeof args.node_id === "string" ? args.node_id : "";
+      if (!nodeId) return { ok: false, reason: "Missing node_id." };
+      const state = canvasStore.getState();
+      if (!state.nodes[nodeId]) {
+        return { ok: false, reason: `Unknown node ${nodeId}.` };
+      }
+      const suggestions = suggestBridges(state, nodeId).map((s) => ({
+        from: { node_id: s.from.nodeId, port: s.from.port },
+        to: { node_id: s.to.nodeId, port: s.to.port },
+        from_type: s.fromType,
+        to_type: s.toType,
+        score: s.score,
+      }));
+      return { ok: true, suggestions };
+    }
+
     case "canvas_get_state": {
       return getCanvasStateForAgent();
     }

@@ -2,8 +2,10 @@ import { getWidgetContract } from "@/lib/workspace/contracts";
 import { getTransform } from "@/lib/workspace/transforms";
 import type {
   Bridge,
+  BridgeSuggestion,
   CanvasState,
   JsonSchema,
+  NodeId,
   TransformRef,
 } from "@/lib/workspace/types";
 
@@ -101,4 +103,97 @@ export function validateBridge(
   }
 
   return { ok: true, bridge };
+}
+
+function schemaScore(from: JsonSchema, to: JsonSchema): number {
+  if (from.$id && to.$id && from.$id === to.$id) return 3;
+  const fromTypes = asArray(from.type);
+  const toTypes = asArray(to.type);
+  if (toTypes.includes("array") && fromTypes.includes("array")) return 2;
+  if (toTypes.includes("object") && fromTypes.includes("object")) return 1;
+  return 0;
+}
+
+function bridgeAlreadyExists(
+  state: CanvasState,
+  from: { nodeId: NodeId; port: string },
+  to: { nodeId: NodeId; port: string },
+): boolean {
+  return Object.values(state.edges).some(
+    (edge) =>
+      edge.from.nodeId === from.nodeId &&
+      edge.from.port === from.port &&
+      edge.to.nodeId === to.nodeId &&
+      edge.to.port === to.port,
+  );
+}
+
+export function suggestBridges(
+  state: CanvasState,
+  newNodeId: NodeId,
+): BridgeSuggestion[] {
+  const newNode = state.nodes[newNodeId];
+  if (!newNode) return [];
+  const newContract = getWidgetContract(newNode.type);
+  if (!newContract) return [];
+
+  const suggestions: BridgeSuggestion[] = [];
+
+  for (const [existingId, existingNode] of Object.entries(state.nodes)) {
+    if (existingId === newNodeId) continue;
+    const existingContract = getWidgetContract(existingNode.type);
+    if (!existingContract) continue;
+
+    // existing.output -> new.input
+    for (const [outName, outPort] of Object.entries(existingContract.outputs)) {
+      for (const [inName, inPort] of Object.entries(newContract.inputs)) {
+        if (!schemasCompatible(outPort.schema, inPort.schema)) continue;
+        if (
+          bridgeAlreadyExists(
+            state,
+            { nodeId: existingId, port: outName },
+            { nodeId: newNodeId, port: inName },
+          )
+        )
+          continue;
+        suggestions.push({
+          from: { nodeId: existingId, port: outName },
+          to: { nodeId: newNodeId, port: inName },
+          fromType: existingNode.type,
+          toType: newNode.type,
+          score: schemaScore(outPort.schema, inPort.schema),
+        });
+      }
+    }
+
+    // new.output -> existing.input
+    for (const [outName, outPort] of Object.entries(newContract.outputs)) {
+      for (const [inName, inPort] of Object.entries(existingContract.inputs)) {
+        if (!schemasCompatible(outPort.schema, inPort.schema)) continue;
+        if (
+          bridgeAlreadyExists(
+            state,
+            { nodeId: newNodeId, port: outName },
+            { nodeId: existingId, port: inName },
+          )
+        )
+          continue;
+        suggestions.push({
+          from: { nodeId: newNodeId, port: outName },
+          to: { nodeId: existingId, port: inName },
+          fromType: newNode.type,
+          toType: existingNode.type,
+          score: schemaScore(outPort.schema, inPort.schema),
+        });
+      }
+    }
+  }
+
+  const bestPerTargetPort = new Map<string, BridgeSuggestion>();
+  for (const s of suggestions) {
+    const key = `${s.to.nodeId}:${s.to.port}`;
+    const current = bestPerTargetPort.get(key);
+    if (!current || s.score > current.score) bestPerTargetPort.set(key, s);
+  }
+  return [...bestPerTargetPort.values()].sort((a, b) => b.score - a.score);
 }

@@ -23,6 +23,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { PlanCard } from "@/components/chat/PlanCard";
 import { ActivityTicker } from "@/components/widgets/ActivityTicker";
 import { CanvasHost } from "@/components/widgets/CanvasHost";
 import { ToolTrace } from "@/components/widgets/ToolTrace";
@@ -30,6 +31,9 @@ import {
   canvasStore,
   executeCanvasTool,
   getCanvasStateForAgent,
+  type CanvasPlan,
+  type CanvasPlanBridge,
+  type CanvasPlanWidget,
   type PendingCall,
   type ToolCallTrace,
 } from "@/lib/workspace";
@@ -60,9 +64,85 @@ type ChatSpace = {
   id: string;
   title: string;
   messages: ChatMessage[];
+  plans: CanvasPlan[];
   createdAt: number;
   updatedAt: number;
 };
+
+function planFromArgs(args: unknown): CanvasPlan | null {
+  if (!args || typeof args !== "object") return null;
+  const raw = args as {
+    intent?: unknown;
+    widgets?: unknown;
+    bridges?: unknown;
+    notes?: unknown;
+  };
+  if (typeof raw.intent !== "string") return null;
+  if (!Array.isArray(raw.widgets) || !Array.isArray(raw.bridges)) return null;
+
+  const widgets: CanvasPlanWidget[] = raw.widgets
+    .map((w) => {
+      if (!w || typeof w !== "object") return null;
+      const v = w as {
+        id?: unknown;
+        type?: unknown;
+        title?: unknown;
+        rationale?: unknown;
+      };
+      if (
+        typeof v.id !== "string" ||
+        typeof v.type !== "string" ||
+        typeof v.title !== "string" ||
+        typeof v.rationale !== "string"
+      ) {
+        return null;
+      }
+      return {
+        id: v.id,
+        type: v.type,
+        title: v.title,
+        rationale: v.rationale,
+      };
+    })
+    .filter((w): w is CanvasPlanWidget => w !== null);
+
+  const bridges: CanvasPlanBridge[] = raw.bridges
+    .map((b): CanvasPlanBridge | null => {
+      if (!b || typeof b !== "object") return null;
+      const v = b as {
+        from?: { node_id?: unknown; port?: unknown };
+        to?: { node_id?: unknown; port?: unknown };
+        transform?: unknown;
+        rationale?: unknown;
+      };
+      if (
+        !v.from ||
+        !v.to ||
+        typeof v.from.node_id !== "string" ||
+        typeof v.from.port !== "string" ||
+        typeof v.to.node_id !== "string" ||
+        typeof v.to.port !== "string" ||
+        typeof v.rationale !== "string"
+      ) {
+        return null;
+      }
+      return {
+        from: { nodeId: v.from.node_id, port: v.from.port },
+        to: { nodeId: v.to.node_id, port: v.to.port },
+        transform: typeof v.transform === "string" ? v.transform : undefined,
+        rationale: v.rationale,
+      };
+    })
+    .filter((b): b is CanvasPlanBridge => b !== null);
+
+  return {
+    id: crypto.randomUUID(),
+    intent: raw.intent,
+    widgets,
+    bridges,
+    notes: typeof raw.notes === "string" ? raw.notes : undefined,
+  };
+}
 
 const EXAMPLES = [
   "Plan a 25-person birthday party in 4 weeks.",
@@ -76,6 +156,7 @@ function createChatSpace(): ChatSpace {
     id: crypto.randomUUID(),
     title: "New space",
     messages: [],
+    plans: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -106,6 +187,10 @@ export default function Home() {
   const [activeSpaceId, setActiveSpaceId] = useState(() => spaces[0]?.id ?? "");
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const activeSpaceIdRef = useRef(activeSpaceId);
+  useEffect(() => {
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   const activeSpace = useMemo(
     () => spaces.find((space) => space.id === activeSpaceId) ?? spaces[0],
@@ -216,6 +301,23 @@ export default function Home() {
             break;
           case "canvas_tool.call":
             canvasCalls.push(event.call);
+            if (event.call.name === "canvas_announce_plan") {
+              const plan = planFromArgs(event.call.arguments);
+              if (plan) {
+                const targetSpaceId = activeSpaceIdRef.current;
+                setSpaces((current) =>
+                  current.map((space) =>
+                    space.id === targetSpaceId
+                      ? {
+                          ...space,
+                          plans: [...space.plans, plan],
+                          updatedAt: Date.now(),
+                        }
+                      : space,
+                  ),
+                );
+              }
+            }
             setTraces((prev) => [
               ...prev,
               {
@@ -498,6 +600,9 @@ export default function Home() {
                 <div className="space-y-4">
                   {activeSpace.messages.map((message) => (
                     <ChatBubble key={message.id} message={message} />
+                  ))}
+                  {activeSpace.plans.map((plan) => (
+                    <PlanCard key={plan.id} plan={plan} />
                   ))}
                   {reply && isStreaming ? (
                     <ChatBubble

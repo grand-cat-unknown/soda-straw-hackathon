@@ -126,6 +126,36 @@ export type CanvasLayout = {
 
 export type CanvasMutationSource = "agent" | "user" | "tool";
 
+export type CanvasPlanWidget = {
+  id: string;
+  type: WidgetType;
+  title: string;
+  rationale: string;
+};
+
+export type CanvasPlanBridge = {
+  from: { nodeId: string; port: string };
+  to: { nodeId: string; port: string };
+  transform?: string;
+  rationale: string;
+};
+
+export type CanvasPlan = {
+  id: string;
+  intent: string;
+  widgets: CanvasPlanWidget[];
+  bridges: CanvasPlanBridge[];
+  notes?: string;
+};
+
+export type BridgeSuggestion = {
+  from: { nodeId: NodeId; port: Port };
+  to: { nodeId: NodeId; port: Port };
+  fromType: WidgetType;
+  toType: WidgetType;
+  score: number;
+};
+
 export type CanvasState = {
   nodes: Record<NodeId, WidgetNode>;
   edges: Record<EdgeId, Bridge>;

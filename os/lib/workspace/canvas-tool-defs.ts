@@ -1,6 +1,7 @@
 import { widgetContracts } from "@/lib/workspace/contracts";
 
 export type CanvasToolName =
+  | "canvas_announce_plan"
   | "canvas_get_state"
   | "canvas_list_widgets"
   | "canvas_add_widget"
@@ -10,6 +11,7 @@ export type CanvasToolName =
   | "canvas_add_bridge"
   | "canvas_remove_bridge"
   | "canvas_preview_bridge"
+  | "canvas_list_bridge_suggestions"
   | "canvas_list_transforms";
 
 export type CanvasToolDef = {
@@ -22,6 +24,78 @@ export type CanvasToolDef = {
 const widgetTypes = Object.keys(widgetContracts);
 
 export const canvasToolDefs: CanvasToolDef[] = [
+  {
+    type: "function",
+    name: "canvas_announce_plan",
+    description:
+      "Announce the workspace plan BEFORE building anything. MUST be your first tool call when the user states a new broad intent. Lists the widgets you intend to add and the bridges you intend to wire between them so the user can see the plan in chat. Does not mutate the canvas.",
+    parameters: {
+      type: "object",
+      properties: {
+        intent: {
+          type: "string",
+          description: "Restate the user's intent in one sentence.",
+        },
+        widgets: {
+          type: "array",
+          description:
+            "Widgets you plan to add. Use the same id values in subsequent canvas_add_widget calls.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              type: { type: "string", enum: widgetTypes },
+              title: { type: "string" },
+              rationale: {
+                type: "string",
+                description: "One-line reason this widget is in the plan.",
+              },
+            },
+            required: ["id", "type", "title", "rationale"],
+            additionalProperties: false,
+          },
+        },
+        bridges: {
+          type: "array",
+          description: "Bridges you plan to create between the planned widgets.",
+          items: {
+            type: "object",
+            properties: {
+              from: {
+                type: "object",
+                properties: {
+                  node_id: { type: "string" },
+                  port: { type: "string" },
+                },
+                required: ["node_id", "port"],
+                additionalProperties: false,
+              },
+              to: {
+                type: "object",
+                properties: {
+                  node_id: { type: "string" },
+                  port: { type: "string" },
+                },
+                required: ["node_id", "port"],
+                additionalProperties: false,
+              },
+              transform: { type: "string" },
+              rationale: { type: "string" },
+            },
+            required: ["from", "to", "rationale"],
+            additionalProperties: false,
+          },
+        },
+        notes: {
+          type: "string",
+          description:
+            "Optional notes, e.g. why no widget fits, or caveats about the plan.",
+        },
+      },
+      required: ["intent", "widgets", "bridges"],
+      additionalProperties: false,
+    },
+  },
   {
     type: "function",
     name: "canvas_get_state",
@@ -199,6 +273,24 @@ export const canvasToolDefs: CanvasToolDef[] = [
         transform: { type: ["string", "object", "null"] },
       },
       required: ["from", "to"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "canvas_list_bridge_suggestions",
+    description:
+      "After adding a widget, list candidate bridges discovered by schema-matching the new widget's ports against existing widgets. Each suggestion is structurally valid; you must still judge whether it is semantically right before calling canvas_add_bridge.",
+    parameters: {
+      type: "object",
+      properties: {
+        node_id: {
+          type: "string",
+          description:
+            "The widget id to find candidate bridges for (usually the one you just added).",
+        },
+      },
+      required: ["node_id"],
       additionalProperties: false,
     },
   },
