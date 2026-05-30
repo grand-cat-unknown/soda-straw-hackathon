@@ -2,6 +2,7 @@ import { widgetContracts } from "@/lib/workspace/contracts";
 
 export type CanvasToolName =
   | "canvas_get_state"
+  | "canvas_list_widgets"
   | "canvas_add_widget"
   | "canvas_update_widget_input"
   | "canvas_remove_widget"
@@ -26,6 +27,13 @@ export const canvasToolDefs: CanvasToolDef[] = [
     name: "canvas_get_state",
     description:
       "Return the current live canvas state: nodes, edges, outputs, layout, widget contracts, and registered transforms.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    type: "function",
+    name: "canvas_list_widgets",
+    description:
+      "Return a compact list of live canvas widgets with ids, types, titles, inputs, outputs, layout, and contracts.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {

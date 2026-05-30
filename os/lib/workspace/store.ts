@@ -235,7 +235,11 @@ export const canvasStore = {
     touch(next, source);
     publish(next);
   },
-  addBridge(input: AddBridgeInput): { ok: true; bridgeId: EdgeId } | { ok: false; reason: string } {
+  addBridge(
+    input: AddBridgeInput,
+  ):
+    | { ok: true; bridgeId: EdgeId; propagated: boolean }
+    | { ok: false; reason: string } {
     const bridge: Bridge = {
       id: input.id ?? `bridge:${crypto.randomUUID()}`,
       from: input.from,
@@ -250,8 +254,37 @@ export const canvasStore = {
     const next = cloneState();
     next.edges[bridge.id] = bridge;
     touch(next, bridge.createdBy);
+
+    const sourceOutputs = next.outputs[bridge.from.nodeId];
+    const sourceHadOutput =
+      Boolean(sourceOutputs) && bridge.from.port in sourceOutputs;
+    if (sourceHadOutput) {
+      const target = next.nodes[bridge.to.nodeId];
+      const value = sourceOutputs[bridge.from.port];
+      const transformed = applyTransform(bridge.transform, value);
+      next.nodes[bridge.to.nodeId] = {
+        ...target,
+        input: {
+          ...target.input,
+          [bridge.to.port]: transformed,
+        },
+      };
+      propagateFrom(
+        next,
+        bridge.to.nodeId,
+        bridge.to.port,
+        transformed,
+        next.meta.revision,
+        1,
+        new Set<string>([
+          `${bridge.id}:${next.meta.revision}`,
+          `${bridge.to.nodeId}:${bridge.to.port}:${next.meta.revision}`,
+        ]),
+      );
+    }
+
     publish(next);
-    return { ok: true, bridgeId: bridge.id };
+    return { ok: true, bridgeId: bridge.id, propagated: sourceHadOutput };
   },
   removeBridge(edgeId: EdgeId, source: CanvasMutationSource = "agent") {
     if (!state.edges[edgeId]) return;

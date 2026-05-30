@@ -57,6 +57,13 @@ function readNodeRef(
   return { nodeId, port: obj.port };
 }
 
+function statePayload() {
+  return {
+    revision: canvasStore.getState().meta.revision,
+    canvas: getCanvasStateForAgent(),
+  };
+}
+
 export function executeCanvasTool(
   name: string,
   args: Record<string, unknown>,
@@ -64,6 +71,22 @@ export function executeCanvasTool(
   switch (name) {
     case "canvas_get_state": {
       return getCanvasStateForAgent();
+    }
+
+    case "canvas_list_widgets": {
+      const state = canvasStore.getState();
+      return {
+        widgets: Object.values(state.nodes).map((node) => ({
+          id: node.id,
+          type: node.type,
+          title: node.title,
+          input: node.input,
+          outputs: state.outputs[node.id] ?? {},
+          layout: state.layout[node.id] ?? null,
+          contract: getWidgetContract(node.type) ?? null,
+        })),
+        revision: state.meta.revision,
+      };
     }
 
     case "canvas_add_widget": {
@@ -79,7 +102,14 @@ export function executeCanvasTool(
         layout: args.layout as CanvasLayout | undefined,
         source: "agent",
       });
-      return { ok: true, node_id: nodeId };
+      const state = canvasStore.getState();
+      return {
+        ok: true,
+        node_id: nodeId,
+        node: state.nodes[nodeId],
+        layout: state.layout[nodeId],
+        ...statePayload(),
+      };
     }
 
     case "canvas_update_widget_input": {
@@ -93,23 +123,49 @@ export function executeCanvasTool(
         (args.input as WidgetInput) ?? {},
         "agent",
       );
-      return { ok: true };
+      return {
+        ok: true,
+        node_id: nodeId,
+        node: canvasStore.getState().nodes[nodeId],
+        ...statePayload(),
+      };
     }
 
     case "canvas_remove_widget": {
       const nodeId = typeof args.node_id === "string" ? args.node_id : "";
       if (!nodeId) return { ok: false, reason: "Missing node_id." };
+      const state = canvasStore.getState();
+      const existing = state.nodes[nodeId];
+      if (!existing) return { ok: false, reason: `Unknown node ${nodeId}.` };
+      const removedBridgeIds = Object.values(state.edges)
+        .filter(
+          (edge) => edge.from.nodeId === nodeId || edge.to.nodeId === nodeId,
+        )
+        .map((edge) => edge.id);
       canvasStore.removeWidget(nodeId, "agent");
-      return { ok: true };
+      return {
+        ok: true,
+        removed_node_id: nodeId,
+        removed_bridge_ids: removedBridgeIds,
+        ...statePayload(),
+      };
     }
 
     case "canvas_set_layout": {
       const nodeId = typeof args.node_id === "string" ? args.node_id : "";
       if (!nodeId) return { ok: false, reason: "Missing node_id." };
+      if (!canvasStore.getState().nodes[nodeId]) {
+        return { ok: false, reason: `Unknown node ${nodeId}.` };
+      }
       const layout = args.layout as CanvasLayout | undefined;
       if (!layout) return { ok: false, reason: "Missing layout." };
       canvasStore.setLayout(nodeId, layout, "agent");
-      return { ok: true };
+      return {
+        ok: true,
+        node_id: nodeId,
+        layout: canvasStore.getState().layout[nodeId],
+        ...statePayload(),
+      };
     }
 
     case "canvas_add_bridge": {
@@ -125,15 +181,30 @@ export function executeCanvasTool(
         createdBy: "agent",
       });
       if (!result.ok) return result;
-      return { ok: true, bridge_id: result.bridgeId };
+      const state = canvasStore.getState();
+      return {
+        ok: true,
+        bridge_id: result.bridgeId,
+        bridge: state.edges[result.bridgeId],
+        propagated: result.propagated,
+        target_node: state.nodes[to.nodeId],
+        ...statePayload(),
+      };
     }
 
     case "canvas_remove_bridge": {
       const bridgeId =
         typeof args.bridge_id === "string" ? args.bridge_id : "";
       if (!bridgeId) return { ok: false, reason: "Missing bridge_id." };
+      if (!canvasStore.getState().edges[bridgeId]) {
+        return { ok: false, reason: `Unknown bridge ${bridgeId}.` };
+      }
       canvasStore.removeBridge(bridgeId, "agent");
-      return { ok: true };
+      return {
+        ok: true,
+        removed_bridge_id: bridgeId,
+        ...statePayload(),
+      };
     }
 
     case "canvas_preview_bridge": {

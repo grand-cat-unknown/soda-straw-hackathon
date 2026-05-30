@@ -24,7 +24,12 @@ export const widgetContracts: Record<WidgetType, WidgetContract> = {
         description: "Canvas specification returned by the canvas capability.",
       },
     },
-    outputs: {},
+    outputs: {
+      actionRequested: {
+        schema: UnknownRecordSchema,
+        description: "Canvas action the user clicked.",
+      },
+    },
   },
   table: {
     type: "table",
@@ -76,7 +81,12 @@ export const widgetContracts: Record<WidgetType, WidgetContract> = {
         optional: true,
       },
     },
-    outputs: {},
+    outputs: {
+      marker: {
+        schema: PlaceSchema,
+        description: "Marker the user confirmed from the detail panel.",
+      },
+    },
   },
   "tool-result": {
     type: "tool-result",
@@ -94,7 +104,12 @@ export const widgetContracts: Record<WidgetType, WidgetContract> = {
         optional: true,
       },
     },
-    outputs: {},
+    outputs: {
+      value: {
+        schema: AnySchema,
+        description: "Tool result value the user emitted.",
+      },
+    },
   },
 };
 
