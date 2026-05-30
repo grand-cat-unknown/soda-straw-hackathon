@@ -897,7 +897,7 @@ export default function Home() {
           </header>
 
           <div className="flex-1">
-            <CanvasHost debug={debugWorkspace} />
+            <CanvasHost debug={debugWorkspace} locked={isStreaming} />
             {!hasResult ? (
               <div className="flex min-h-[55vh] items-center justify-center rounded-md border border-dashed border-border bg-card px-6 text-center">
                 <div className="max-w-md">

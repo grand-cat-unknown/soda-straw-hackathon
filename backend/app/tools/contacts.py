@@ -13,6 +13,9 @@ class Contact(BaseModel):
     relationship: str
     tags: list[str] = Field(default_factory=list)
     city: str
+    country: str = "Belgium"
+    lat: float | None = None
+    lng: float | None = None
     email: str | None = None
     phone: str | None = None
     preferences: dict[str, Any] | None = None
@@ -25,6 +28,9 @@ class ContactCreate(BaseModel):
     relationship: str = "contact"
     tags: list[str] = Field(default_factory=list)
     city: str = ""
+    country: str = "Belgium"
+    lat: float | None = None
+    lng: float | None = None
     email: str | None = None
     phone: str | None = None
     preferences: dict[str, Any] | None = None
@@ -37,6 +43,9 @@ class ContactUpdate(BaseModel):
     relationship: str | None = None
     tags: list[str] | None = None
     city: str | None = None
+    country: str | None = None
+    lat: float | None = None
+    lng: float | None = None
     email: str | None = None
     phone: str | None = None
     preferences: dict[str, Any] | None = None
@@ -66,12 +75,12 @@ class GroupsResponse(BaseModel):
 
 
 contacts: list[Contact] = [
-    Contact(id="c_001", name="Maya Rao", relationship="close friend", tags=["friends", "design"], city="Brussels"),
-    Contact(id="c_002", name="Leo Martins", relationship="friend", tags=["friends", "music"], city="Brussels"),
-    Contact(id="c_003", name="Aisha Khan", relationship="coworker", tags=["work", "food"], city="Ghent"),
-    Contact(id="c_004", name="Jonas Peeters", relationship="neighbor", tags=["neighbors"], city="Brussels"),
-    Contact(id="c_005", name="Nina Verma", relationship="close friend", tags=["friends", "planning"], city="Antwerp"),
-    Contact(id="c_006", name="Tom Jacobs", relationship="friend", tags=["friends", "drinks"], city="Brussels"),
+    Contact(id="c_001", name="Maya Rao", relationship="close friend", tags=["friends", "design"], city="Brussels", lat=50.8503, lng=4.3517),
+    Contact(id="c_002", name="Leo Martins", relationship="friend", tags=["friends", "music"], city="Brussels", lat=50.8466, lng=4.3528),
+    Contact(id="c_003", name="Aisha Khan", relationship="coworker", tags=["work", "food"], city="Ghent", lat=51.0543, lng=3.7174),
+    Contact(id="c_004", name="Jonas Peeters", relationship="neighbor", tags=["neighbors"], city="Brussels", lat=50.8550, lng=4.3753),
+    Contact(id="c_005", name="Nina Verma", relationship="close friend", tags=["friends", "planning"], city="Antwerp", lat=51.2194, lng=4.4025),
+    Contact(id="c_006", name="Tom Jacobs", relationship="friend", tags=["friends", "drinks"], city="Bruges", lat=51.2093, lng=3.2247),
 ]
 
 groups: list[Group] = []
