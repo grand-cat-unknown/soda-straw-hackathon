@@ -10,6 +10,7 @@ import {
   catalogToSystemFragment,
   fetchStrawCatalog,
 } from "@/lib/soda-straw-catalog";
+import { widgetCatalogForPrompt } from "@/components/widgets/widget-contracts";
 
 export const runtime = "nodejs";
 
@@ -70,7 +71,7 @@ const BASE_INSTRUCTIONS = [
   "  3. Call `canvas.render` LAST to declare the workspace layout, widget nodes, and bridges.",
   "A canvas widget has this generic shape: `{ id, type, title, input, outputs }`.",
   "A bridge has this generic shape: `{ id, from: { node_id, port }, to: { node_id, port }, transform }`.",
-  "Use widget inputs that are already shaped for the widget. For example, a `map` widget expects `input.markers` as `{ id, lng, lat, label? }[]` and optional `input.route`; a `table` widget expects `input.table`; a `marker-detail` widget expects `input.marker`; a `tool-result` widget expects `input.value`.",
+  "Match each widget's input shape to the contract declared below. The agent must use exactly the input port names and meanings listed there; never invent ports.",
   "Use bridges for live UI interactions, such as `{ from: { node_id: 'map', port: 'selectedMarker' }, to: { node_id: 'detail', port: 'marker' }, transform: 'identity' }`.",
   "Prefer creating concrete data over describing it. Only ask clarifying questions if a critical field is missing.",
   "Do not claim to have done something unless a tool call actually did it.",
@@ -79,14 +80,53 @@ const BASE_INSTRUCTIONS = [
 async function buildInstructions(): Promise<string> {
   const catalog = await fetchStrawCatalog();
   const fragment = catalogToSystemFragment(catalog);
-  return fragment ? `${BASE_INSTRUCTIONS}\n\n${fragment}` : BASE_INSTRUCTIONS;
+  const widgets = widgetCatalogForPrompt();
+  const parts = [BASE_INSTRUCTIONS, widgets];
+  if (fragment) parts.push(fragment);
+  return parts.join("\n\n");
 }
 
-function buildInput(message: string, canvas: unknown): string {
+type ConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+function isConversationMessage(value: unknown): value is ConversationMessage {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { role?: unknown; content?: unknown };
+  return (
+    (candidate.role === "user" || candidate.role === "assistant") &&
+    typeof candidate.content === "string"
+  );
+}
+
+function normalizeConversation(value: unknown): ConversationMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isConversationMessage)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim(),
+    }))
+    .filter((message) => message.content.length > 0);
+}
+
+function buildInput(
+  message: string,
+  canvas: unknown,
+  conversation: ConversationMessage[],
+): string {
   return [
-    `User request:\n${message}`,
+    "Active space conversation history:",
+    conversation.length > 0
+      ? conversation
+          .map((entry) => `${entry.role.toUpperCase()}:\n${entry.content}`)
+          .join("\n\n")
+      : "(No previous messages in this space.)",
     "",
-    "Current canvas snapshot:",
+    `Current user request:\n${message}`,
+    "",
+    "Current canvas snapshot, which is the authoritative workspace state:",
     JSON.stringify(canvas ?? null, null, 2),
   ].join("\n");
 }
@@ -117,6 +157,8 @@ type ChatRequestBody =
   | {
       message: string;
       canvas?: unknown;
+      conversation?: ConversationMessage[];
+      space?: { id?: string; title?: string };
     }
   | {
       previous_response_id: string;
@@ -196,12 +238,16 @@ export async function POST(request: Request) {
           const { message, canvas } = body as {
             message: string;
             canvas?: unknown;
+            conversation?: unknown;
           };
+          const conversation = normalizeConversation(
+            (body as { conversation?: unknown }).conversation,
+          );
           const instructions = await buildInstructions();
           openaiStream = await openai.responses.create({
             model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
             instructions,
-            input: buildInput(message.trim(), canvas),
+            input: buildInput(message.trim(), canvas, conversation),
             tools: tools.length > 0 ? tools : undefined,
             stream: true,
           });

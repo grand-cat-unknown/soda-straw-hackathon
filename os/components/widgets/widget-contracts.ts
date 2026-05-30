@@ -48,3 +48,19 @@ export const widgetRegistryFromContracts: Record<WidgetType, WidgetDefinition> =
       contractToDefinition(contract),
     ]),
   );
+
+export function widgetCatalogForPrompt(): string {
+  const lines = Object.values(widgetContracts).map((contract) => {
+    const inputs = Object.entries(contract.inputs)
+      .map(([name, port]) => {
+        const flag = port.optional ? "?" : "";
+        return `input.${name}${flag} (${port.description})`;
+      })
+      .join(", ");
+    const outputs = Object.entries(contract.outputs)
+      .map(([name, port]) => `${name} (${port.description})`)
+      .join(", ");
+    return `- '${contract.type}': ${contract.description} Inputs: ${inputs || "none"}. Outputs: ${outputs || "none"}.`;
+  });
+  return ["Available widget types (from live contracts):", ...lines].join("\n");
+}

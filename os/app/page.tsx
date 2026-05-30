@@ -23,8 +23,6 @@ import { ActivityTicker } from "@/components/widgets/ActivityTicker";
 import { CanvasHost } from "@/components/widgets/CanvasHost";
 import { ToolTrace } from "@/components/widgets/ToolTrace";
 import {
-  applyToolTraceToCanvasStore,
-  buildWorkspace,
   canvasStore,
   executeCanvasTool,
   getCanvasStateForAgent,
@@ -48,11 +46,42 @@ type StreamEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
+type ChatSpace = {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+};
+
 const EXAMPLES = [
   "Plan a 25-person birthday party in 4 weeks.",
   "Plan a 10-day September trip that feels intentional.",
   "Set up a launch checklist for a small product release.",
 ];
+
+function createChatSpace(): ChatSpace {
+  return {
+    id: crypto.randomUUID(),
+    title: "Untitled space",
+    messages: [],
+  };
+}
+
+function createChatMessage(
+  role: ChatMessage["role"],
+  content: string,
+): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role,
+    content,
+  };
+}
 
 export default function Home() {
   const [intent, setIntent] = useState("");
@@ -63,6 +92,9 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [catalog, setCatalog] = useState<{ name: string; description: string }[]>(
     [],
+  );
+  const [activeSpace, setActiveSpace] = useState<ChatSpace>(() =>
+    createChatSpace(),
   );
   const abortRef = useRef<AbortController | null>(null);
 
@@ -91,6 +123,7 @@ export default function Home() {
     setPending([]);
     setError("");
     setIsStreaming(false);
+    setActiveSpace(createChatSpace());
   }, []);
 
   const runStream = useCallback(
@@ -100,6 +133,7 @@ export default function Home() {
     ): Promise<{
       awaitingResponseId: string | null;
       canvasCalls: CanvasToolCall[];
+      text: string;
     }> => {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -120,10 +154,12 @@ export default function Home() {
       let buffer = "";
       let awaitingResponseId: string | null = null;
       const canvasCalls: CanvasToolCall[] = [];
+      let text = "";
 
       const handle = (event: StreamEvent) => {
         switch (event.type) {
           case "text.delta":
+            text += event.delta;
             setReply((prev) => prev + event.delta);
             break;
           case "tool.start":
@@ -139,7 +175,6 @@ export default function Home() {
           case "tool.done":
             setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
             setTraces((prev) => [...prev, event.trace]);
-            applyToolTraceToCanvasStore(event.trace);
             break;
           case "canvas_tool.call":
             canvasCalls.push(event.call);
@@ -190,7 +225,7 @@ export default function Home() {
         }
       }
 
-      return { awaitingResponseId, canvasCalls };
+      return { awaitingResponseId, canvasCalls, text };
     },
     [],
   );
@@ -209,20 +244,43 @@ export default function Home() {
       setPending([]);
       setIsStreaming(true);
 
+      const userMessage = createChatMessage("user", trimmed);
+      const conversation = activeSpace.messages.map(({ role, content }) => ({
+        role,
+        content,
+      }));
+      const nextTitle =
+        activeSpace.messages.length === 0
+          ? trimmed.slice(0, 64)
+          : activeSpace.title;
+      setActiveSpace((space) => ({
+        ...space,
+        title: space.messages.length === 0 ? nextTitle : space.title,
+        messages: [...space.messages, userMessage],
+      }));
+
       const controller = new AbortController();
       abortRef.current = controller;
 
       try {
+        let assistantText = "";
         let next: {
           awaitingResponseId: string | null;
           canvasCalls: CanvasToolCall[];
+          text: string;
         } = await runStream(
           {
             message: trimmed,
+            conversation,
+            space: {
+              id: activeSpace.id,
+              title: nextTitle,
+            },
             canvas: getCanvasStateForAgent(),
           },
           controller,
         );
+        assistantText += next.text;
 
         let safety = 0;
         while (
@@ -252,6 +310,18 @@ export default function Home() {
             },
             controller,
           );
+          assistantText += next.text;
+        }
+
+        if (assistantText.trim()) {
+          const assistantMessage = createChatMessage(
+            "assistant",
+            assistantText.trim(),
+          );
+          setActiveSpace((space) => ({
+            ...space,
+            messages: [...space.messages, assistantMessage],
+          }));
         }
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
@@ -265,7 +335,7 @@ export default function Home() {
         abortRef.current = null;
       }
     },
-    [runStream],
+    [activeSpace, runStream],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -280,13 +350,11 @@ export default function Home() {
     }
   }
 
-  const workspace = buildWorkspace(traces);
   const hasResult =
     reply.length > 0 ||
+    activeSpace.messages.length > 0 ||
     traces.length > 0 ||
-    pending.length > 0 ||
-    workspace.canvases.length > 0 ||
-    workspace.tables.length > 0;
+    pending.length > 0;
 
   return (
     <main className="min-h-screen px-4 py-12">
@@ -386,13 +454,31 @@ export default function Home() {
           isStreaming={isStreaming}
         />
 
-        {reply ? (
+        {activeSpace.messages.length > 0 || reply ? (
           <Card className="fluid-enter">
             <CardHeader>
-              <CardTitle className="text-base">Assistant</CardTitle>
+              <CardTitle className="text-base">{activeSpace.title}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap text-sm leading-6">{reply}</p>
+            <CardContent className="space-y-4">
+              {activeSpace.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={
+                    message.role === "user"
+                      ? "ml-auto max-w-[85%] rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+                      : "max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm"
+                  }
+                >
+                  <p className="whitespace-pre-wrap leading-6">
+                    {message.content}
+                  </p>
+                </div>
+              ))}
+              {reply && isStreaming ? (
+                <div className="max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm">
+                  <p className="whitespace-pre-wrap leading-6">{reply}</p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}
