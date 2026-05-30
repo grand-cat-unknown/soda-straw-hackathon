@@ -1,4 +1,3 @@
-import { CanvasSummaryWidgetContract } from "@/components/widgets/CanvasSummaryWidget.contract";
 import { MapWidgetContract } from "@/components/widgets/MapWidget.contract";
 import { MarkerDetailWidgetContract } from "@/components/widgets/MarkerDetailWidget.contract";
 import { TableWidgetContract } from "@/components/widgets/TableWidget.contract";
@@ -12,7 +11,6 @@ import type {
 export const widgetContracts: Record<WidgetType, WidgetContract> =
   Object.fromEntries(
     [
-      CanvasSummaryWidgetContract,
       TableWidgetContract,
       MapWidgetContract,
       MarkerDetailWidgetContract,

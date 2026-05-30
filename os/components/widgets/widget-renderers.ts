@@ -1,6 +1,5 @@
 "use client";
 
-import { CanvasSummaryWidget } from "@/components/widgets/CanvasSummaryWidget";
 import { MapCanvasWidget } from "@/components/widgets/MapWidget";
 import { MarkerDetailWidget } from "@/components/widgets/MarkerDetailWidget";
 import { TableCanvasWidget } from "@/components/widgets/TableWidget";
@@ -15,7 +14,6 @@ export const widgetRenderers: Record<
   WidgetType,
   (props: WidgetComponentProps) => ReactNode
 > = {
-  "canvas-summary": CanvasSummaryWidget,
   table: TableCanvasWidget,
   map: MapCanvasWidget,
   "marker-detail": MarkerDetailWidget,

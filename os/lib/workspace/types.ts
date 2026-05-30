@@ -44,31 +44,6 @@ export type JsonSchema = {
   additionalProperties?: boolean | JsonSchema;
 };
 
-export type CanvasWidgetSpec = {
-  id: string;
-  type: string;
-  title: string;
-  input?: WidgetInput;
-  outputs?: string[];
-};
-
-export type CanvasBridgeSpec = {
-  id: string;
-  from: { node_id?: string; nodeId?: string; port: string };
-  to: { node_id?: string; nodeId?: string; port: string };
-  transform?: string | null;
-};
-
-export type WorkspaceCanvas = {
-  id: string;
-  title: string;
-  layout: string;
-  data_sources: { tool: string; capability_id: string; params?: unknown }[];
-  actions: { label: string; capability_id: string; params?: unknown }[];
-  widgets?: CanvasWidgetSpec[];
-  bridges?: CanvasBridgeSpec[];
-};
-
 export type WidgetPort = {
   name: string;
   description?: string;
@@ -133,13 +108,6 @@ export type TransformRef = {
   params?: Record<string, unknown>;
 };
 
-export type WidgetEdge = {
-  id: string;
-  from: { nodeId: string; port: string };
-  to: { nodeId: string; port: string };
-  transform?: string | TransformRef;
-};
-
 export type Bridge = {
   id: EdgeId;
   from: { nodeId: NodeId; port: Port };
@@ -163,19 +131,7 @@ export type CanvasState = {
   edges: Record<EdgeId, Bridge>;
   outputs: Record<NodeId, Record<Port, unknown>>;
   layout: Record<NodeId, CanvasLayout>;
-  appliedTraceIds: Record<string, true>;
   meta: { revision: number; lastTouchedBy: CanvasMutationSource };
-};
-
-export type WorkspaceGraph = {
-  nodes: WidgetNode[];
-  edges: WidgetEdge[];
-};
-
-export type Workspace = {
-  tables: WorkspaceTable[];
-  canvases: WorkspaceCanvas[];
-  graph: WorkspaceGraph;
 };
 
 export function prettyToolName(name: string): string {

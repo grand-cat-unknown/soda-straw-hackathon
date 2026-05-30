@@ -16,7 +16,6 @@ import type {
   TransformRef,
   WidgetInput,
   WidgetNode,
-  WorkspaceGraph,
 } from "@/lib/workspace/types";
 
 const DEFAULT_LAYOUT: CanvasLayout = { x: 0, y: 0, w: 12, h: 4 };
@@ -42,18 +41,12 @@ type AddBridgeInput = {
   createdBy?: CanvasMutationSource;
 };
 
-type TraceMutation = {
-  operationId: string;
-  apply: () => void;
-};
-
 function emptyState(): CanvasState {
   return {
     nodes: {},
     edges: {},
     outputs: {},
     layout: {},
-    appliedTraceIds: {},
     meta: { revision: 0, lastTouchedBy: "tool" },
   };
 }
@@ -72,7 +65,6 @@ function cloneState(current: CanvasState = state): CanvasState {
       ]),
     ),
     layout: { ...current.layout },
-    appliedTraceIds: { ...current.appliedTraceIds },
     meta: { ...current.meta },
   };
 }
@@ -321,29 +313,10 @@ export const canvasStore = {
     );
     publish(next);
   },
-  applyTraceMutation({ operationId, apply }: TraceMutation) {
-    if (state.appliedTraceIds[operationId]) return;
-    apply();
-    const next = cloneState();
-    next.appliedTraceIds[operationId] = true;
-    publish(next);
-  },
 };
 
 export function useCanvasState(): CanvasState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
-export function canvasStateToGraph(current: CanvasState): WorkspaceGraph {
-  return {
-    nodes: Object.values(current.nodes),
-    edges: Object.values(current.edges).map((edge) => ({
-      id: edge.id,
-      from: edge.from,
-      to: edge.to,
-      transform: edge.transform,
-    })),
-  };
 }
 
 export function getCanvasStateForAgent() {
