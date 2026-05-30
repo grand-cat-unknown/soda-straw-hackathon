@@ -15,22 +15,35 @@ import {
   WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
-export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
-  const result = isRecord(input.result) ? input.result : input;
-  const contacts = asRecords(result.contacts).length
-    ? asRecords(result.contacts)
-    : isRecord(result.contact)
-      ? [result.contact]
+export function ContactsWidget({ input, emitOutput, node }: WidgetComponentProps) {
+  console.log("[ContactsWidget] render", {
+    nodeId: node?.id,
+    inputKeys: Object.keys(input ?? {}),
+    input,
+  });
+  const result = isRecord(input.result) ? input.result : {};
+  const inputContacts = asRecords(input.contacts);
+  const resultContacts = asRecords(result.contacts);
+  const inputGroups = asRecords(input.groups);
+  const resultGroups = asRecords(result.groups);
+  const contacts = inputContacts.length
+    ? inputContacts
+    : resultContacts.length
+      ? resultContacts
       : isRecord(input.contact)
         ? [input.contact]
-        : [];
-  const groups = asRecords(result.groups).length
-    ? asRecords(result.groups)
-    : isRecord(result.group)
-      ? [result.group]
+        : isRecord(result.contact)
+          ? [result.contact]
+          : [];
+  const groups = inputGroups.length
+    ? inputGroups
+    : resultGroups.length
+      ? resultGroups
       : isRecord(input.group)
         ? [input.group]
-        : [];
+        : isRecord(result.group)
+          ? [result.group]
+          : [];
 
   if (contacts.length === 0 && groups.length === 0) {
     return (

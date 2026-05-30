@@ -412,18 +412,47 @@ function WidgetBody({
   emitOutput: (port: string, value: unknown) => void;
 }) {
   const Renderer = widgetRenderers[node.type] ?? fallbackWidgetRenderer;
+  const contract = getWidgetContract(node.type);
   const onMountBindings = JSON.stringify(
     Object.entries(node.bindings ?? {})
-      .filter(([, binding]) => binding.refresh === "onMount")
+      .filter(([name, binding]) => {
+        const refresh =
+          binding.refresh ??
+          (binding as unknown as { refresh?: string }).refresh;
+        const normalizedRefresh =
+          typeof refresh === "string"
+            ? refresh.toLowerCase().replace(/[^a-z]/g, "")
+            : refresh;
+        const capabilityId =
+          binding.capabilityId ??
+          (binding as unknown as { capability_id?: string }).capability_id;
+        const isPrimaryDataBinding = contract?.toolCandidates?.some(
+          (candidate) =>
+            candidate.inputPort === name &&
+            candidate.capabilityId === capabilityId &&
+            !/\.(get|read|fetch_by_id)$/.test(candidate.capabilityId),
+        );
+        return (
+          refresh === undefined ||
+          normalizedRefresh === "onmount" ||
+          isPrimaryDataBinding
+        );
+      })
       .map(([name]) => name),
   );
 
   useEffect(() => {
     const bindingNames = JSON.parse(onMountBindings) as string[];
+    console.log("[widget] mount effect", {
+      nodeId: node.id,
+      type: node.type,
+      onMountBindings: bindingNames,
+      allBindings: node.bindings,
+    });
     if (bindingNames.length > 0) {
       void refreshWidgetBindings(node.id, bindingNames);
     }
-  }, [node.id, onMountBindings]);
+  }, [node.id, node.type, node.bindings, onMountBindings]);
 
   return (
     <Renderer

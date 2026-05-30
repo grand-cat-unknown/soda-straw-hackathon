@@ -69,7 +69,9 @@ export async function POST(request: Request) {
       capabilityId?: unknown;
       params?: unknown;
     };
+    console.log("[capability-call] request", body);
     if (typeof body.capabilityId !== "string") {
+      console.warn("[capability-call] missing capabilityId");
       return Response.json({ error: "capabilityId is required." }, { status: 400 });
     }
     const params =
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
         ? `${backendBase()}${path}${queryString(rest)}`
         : `${backendBase()}${path}`;
 
+    console.log("[capability-call] forwarding", { method, url });
     const response = await fetch(url, {
       method,
       headers: {
@@ -104,6 +107,7 @@ export async function POST(request: Request) {
     });
     const text = await response.text();
     const output = text ? JSON.parse(text) : null;
+    console.log("[capability-call] response", { status: response.status, ok: response.ok });
     if (!response.ok) {
       return Response.json(
         { error: output?.detail ?? `Capability call failed (${response.status}).`, output },

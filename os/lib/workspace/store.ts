@@ -101,6 +101,30 @@ function defaultLayout(type: string): CanvasLayout {
   return widgetContracts[type]?.render.defaultLayout ?? DEFAULT_LAYOUT;
 }
 
+function isSingleRecordCapability(capabilityId: string): boolean {
+  return /\.(get|read|fetch_by_id)$/.test(capabilityId);
+}
+
+function bindingCapabilityId(binding: ToolBinding): string | undefined {
+  return (
+    binding.capabilityId ??
+    (binding as unknown as { capability_id?: string }).capability_id
+  );
+}
+
+function normalizeBindingForMount(binding: ToolBinding): ToolBinding {
+  const refresh = String(binding.refresh ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+  if (refresh === "" || refresh === "onmount") return binding;
+
+  // The agent often sets `manual`, `afterAction`, or a spelling variant on
+  // bindings it intends to be the widget's primary data source. There is no UI
+  // for manual refresh, so the widget renders empty forever.
+  return { ...binding, refresh: "onMount" };
+}
+
 function upsertNode(next: CanvasState, node: WidgetNode, layout?: CanvasLayout): void {
   next.nodes[node.id] = node;
   next.layout[node.id] = layout ?? next.layout[node.id] ?? defaultLayout(node.type);
@@ -182,6 +206,48 @@ export const canvasStore = {
     source = "agent",
   }: AddWidgetInput): NodeId {
     const nodeId = id ?? `${type}:${crypto.randomUUID()}`;
+    const contract = widgetContracts[type];
+    const agentBindings: Record<string, ToolBinding> = bindings
+      ? Object.fromEntries(
+          Object.entries(bindings).map(([name, binding]) => {
+            const capabilityId = bindingCapabilityId(binding);
+            const candidate = contract?.toolCandidates?.find(
+              (item) =>
+                item.inputPort === name &&
+                item.capabilityId === capabilityId &&
+                !isSingleRecordCapability(item.capabilityId),
+            );
+            return [
+              name,
+              candidate ? normalizeBindingForMount(binding) : binding,
+            ];
+          }),
+        )
+      : {};
+
+    // Auto-attach bindings from the widget's declared toolCandidates for any
+    // input port the agent did not bind itself. Without this the agent often
+    // adds a backend-backed widget with no bindings and it renders empty.
+    // Skip candidates whose capabilityId looks like a single-record fetch
+    // (`.get`, `.read`) — those need an id that only a bridge can provide.
+    const candidateBindings: Record<string, ToolBinding> = {};
+    if (contract?.toolCandidates) {
+      for (const candidate of contract.toolCandidates) {
+        if (agentBindings[candidate.inputPort]) continue;
+        if (candidateBindings[candidate.inputPort]) continue;
+        if (isSingleRecordCapability(candidate.capabilityId)) continue;
+        candidateBindings[candidate.inputPort] = {
+          capabilityId: candidate.capabilityId,
+          resultPath: candidate.resultPath,
+          ...(candidate.transform ? { transform: candidate.transform } : {}),
+          refresh: "onMount",
+        };
+      }
+    }
+
+    const mergedBindings = { ...candidateBindings, ...agentBindings };
+    const normalizedBindings =
+      Object.keys(mergedBindings).length > 0 ? mergedBindings : undefined;
     const next = cloneState();
     upsertNode(
       next,
@@ -190,7 +256,7 @@ export const canvasStore = {
         type,
         title: title ?? defaultTitle(type),
         input,
-        ...(bindings ? { bindings } : {}),
+        ...(normalizedBindings ? { bindings: normalizedBindings } : {}),
         ...(actions ? { actions } : {}),
       },
       layout,

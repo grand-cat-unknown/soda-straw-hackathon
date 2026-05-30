@@ -1,6 +1,7 @@
 "use client";
 
 import { canvasStore } from "@/lib/workspace/store";
+import { getWidgetContract } from "@/lib/workspace/contracts";
 import type {
   NodeId,
   ToolAction,
@@ -87,14 +88,24 @@ function applyTransform(value: unknown, transform?: string): unknown {
   }
 }
 
-function resolveBindingValue(output: unknown, binding: ToolBinding): unknown {
-  const resultPath =
+function bindingCapabilityId(binding: ToolBinding): string | undefined {
+  return (
+    binding.capabilityId ??
+    (binding as unknown as { capability_id?: string }).capability_id
+  );
+}
+
+function bindingResultPath(
+  node: WidgetNode,
+  name: string,
+  binding: ToolBinding,
+): string | undefined {
+  return (
     binding.resultPath ??
     (binding as unknown as { result_path?: string }).result_path ??
-    "$";
-  return applyTransform(
-    pickResultPath(output, resultPath),
-    binding.transform,
+    getWidgetContract(node.type)?.toolCandidates?.find(
+      (candidate) => candidate.inputPort === name,
+    )?.resultPath
   );
 }
 
@@ -103,20 +114,57 @@ export async function refreshWidgetBindings(
   bindingNames?: string[],
 ): Promise<void> {
   const node = canvasStore.getState().nodes[nodeId];
-  if (!node?.bindings) return;
+  console.log("[binding] refresh start", {
+    nodeId,
+    requested: bindingNames,
+    hasBindings: Boolean(node?.bindings),
+    bindings: node?.bindings,
+  });
+  if (!node?.bindings) {
+    console.warn("[binding] node has no bindings", { nodeId });
+    return;
+  }
   const requested = new Set(bindingNames);
   const updates: WidgetInput = {};
 
   for (const [name, binding] of Object.entries(node.bindings)) {
     if (requested.size > 0 && !requested.has(name)) continue;
     const capabilityId =
-      binding.capabilityId ??
-      (binding as unknown as { capability_id?: string }).capability_id;
-    if (!capabilityId) continue;
-    const output = await callCapability(capabilityId, binding.params ?? {});
-    updates[name] = resolveBindingValue(output, binding);
+      bindingCapabilityId(binding) ??
+      getWidgetContract(node.type)?.toolCandidates?.find(
+        (candidate) => candidate.inputPort === name,
+      )?.capabilityId;
+    if (!capabilityId) {
+      console.warn("[binding] missing capabilityId", { nodeId, name, binding });
+      continue;
+    }
+    try {
+      const output = await callCapability(capabilityId, binding.params ?? {});
+      const resultPath = bindingResultPath(node, name, binding);
+      const resolved = applyTransform(
+        pickResultPath(output, resultPath ?? "$"),
+        binding.transform,
+      );
+      console.log("[binding] fetched", {
+        nodeId,
+        name,
+        capabilityId,
+        resultPath,
+        rawOutput: output,
+        resolved,
+      });
+      updates[name] = resolved;
+    } catch (error) {
+      console.error("[binding] fetch failed", {
+        nodeId,
+        name,
+        capabilityId,
+        error,
+      });
+    }
   }
 
+  console.log("[binding] applying updates", { nodeId, updates });
   if (Object.keys(updates).length > 0) {
     canvasStore.updateWidgetInput(nodeId, updates, "tool");
   }
