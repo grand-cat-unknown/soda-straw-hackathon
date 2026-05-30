@@ -1,5 +1,6 @@
 import {
   AnySchema,
+  StringSchema,
   UnknownArraySchema,
   UnknownRecordSchema,
 } from "@/lib/workspace/schemas";
@@ -13,6 +14,16 @@ export const ContactsWidgetContract: WidgetContract = {
     contacts: {
       schema: UnknownArraySchema,
       description: "Contact records from contacts.search.",
+      optional: true,
+    },
+    tag: {
+      schema: StringSchema,
+      description: "Optional contact tag to filter the rendered contact list by.",
+      optional: true,
+    },
+    tags: {
+      schema: UnknownArraySchema,
+      description: "Optional contact tags to filter the rendered contact list by. Matches any tag.",
       optional: true,
     },
     contact: {
@@ -61,7 +72,7 @@ export const ContactsWidgetContract: WidgetContract = {
       capabilityId: "contacts.search",
       inputPort: "contacts",
       resultPath: "$.contacts",
-      purpose: "Render matching contacts from the backend.",
+      purpose: "Render matching contacts from the backend. Optionally pass binding params { tag: 'friends' } or { tags: ['friends', 'work'] } when the user asks for a tag-filtered contacts list; omit tag params to show all contacts.",
     },
     {
       capabilityId: "contacts.get",

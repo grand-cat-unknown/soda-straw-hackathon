@@ -82,7 +82,7 @@ capabilities = [
         "id": "contacts.search",
         "tool": "contacts",
         "name": "Search Contacts",
-        "description": "Find people by name, relationship, city, or tag.",
+        "description": "Find people by name, relationship, city, or tag. Optional query params: q for free-text search, tag for one tag, or tags for one or more tags.",
         "method": "GET",
         "endpoint": "/contacts",
         "output_model": "ContactsResponse",
@@ -162,17 +162,37 @@ capabilities = [
 ]
 
 
-@router.get("", response_model=ContactsResponse)
-def search_contacts(q: str | None = Query(default=None, description="Search text for name, relationship, city, or tag.")):
-    if not q:
-        return ContactsResponse(contacts=contacts)
+def normalize_tag(value: str) -> str:
+    return value.strip().lower()
 
-    query = q.lower()
-    matches = [
-        contact
-        for contact in contacts
-        if query in " ".join([contact.name, contact.relationship, contact.city, *contact.tags]).lower()
-    ]
+
+@router.get("", response_model=ContactsResponse)
+def search_contacts(
+    q: str | None = Query(default=None, description="Search text for name, relationship, city, or tag."),
+    tag: str | None = Query(default=None, description="Optional single tag to filter contacts by."),
+    tags: list[str] = Query(default_factory=list, description="Optional repeated tags to filter contacts by. Matches contacts that have any requested tag."),
+):
+    requested_tags = {normalize_tag(item) for item in tags if normalize_tag(item)}
+    if tag and normalize_tag(tag):
+        requested_tags.add(normalize_tag(tag))
+
+    query = q.lower().strip() if q else None
+    matches = contacts
+
+    if requested_tags:
+        matches = [
+            contact
+            for contact in matches
+            if requested_tags.intersection(normalize_tag(item) for item in contact.tags)
+        ]
+
+    if query:
+        matches = [
+            contact
+            for contact in matches
+            if query in " ".join([contact.name, contact.relationship, contact.city, *contact.tags]).lower()
+        ]
+
     return ContactsResponse(contacts=matches)
 
 

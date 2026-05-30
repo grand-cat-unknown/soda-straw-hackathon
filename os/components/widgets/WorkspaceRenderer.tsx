@@ -174,21 +174,39 @@ function BridgeOverlay({
       const to = placements[edge.to.nodeId];
       if (!from || !to) return null;
 
-      const fromCenterX = (from.col + from.cols / 2) * SVG_COL_WIDTH;
-      const toCenterX = (to.col + to.cols / 2) * SVG_COL_WIDTH;
-      const leftToRight = fromCenterX <= toCenterX;
-      const startX = (from.col + (leftToRight ? from.cols : 0)) * SVG_COL_WIDTH;
-      const endX = (to.col + (leftToRight ? 0 : to.cols)) * SVG_COL_WIDTH;
-      const startY = (from.row + from.rows / 2) * CELL_HEIGHT_PX;
-      const endY = (to.row + to.rows / 2) * CELL_HEIGHT_PX;
-      const controlOffset = Math.max(60, Math.abs(endX - startX) * 0.35);
-      const controlDirection = leftToRight ? 1 : -1;
-      const path = [
-        `M ${startX} ${startY}`,
-        `C ${startX + controlOffset * controlDirection} ${startY}`,
-        `${endX - controlOffset * controlDirection} ${endY}`,
-        `${endX} ${endY}`,
-      ].join(" ");
+      const fromLeft = from.col * SVG_COL_WIDTH;
+      const fromRight = (from.col + from.cols) * SVG_COL_WIDTH;
+      const fromTop = from.row * CELL_HEIGHT_PX;
+      const fromBottom = (from.row + from.rows) * CELL_HEIGHT_PX;
+      const toLeft = to.col * SVG_COL_WIDTH;
+      const toRight = (to.col + to.cols) * SVG_COL_WIDTH;
+      const toTop = to.row * CELL_HEIGHT_PX;
+      const toBottom = (to.row + to.rows) * CELL_HEIGHT_PX;
+
+      const horizontalGap = Math.max(fromLeft - toRight, toLeft - fromRight, 0);
+      const verticalGap = Math.max(fromTop - toBottom, toTop - fromBottom, 0);
+      const sideBySide = horizontalGap >= verticalGap;
+
+      let startX: number;
+      let startY: number;
+      let endX: number;
+      let endY: number;
+
+      if (sideBySide) {
+        const fromIsLeft = fromRight <= toLeft || (fromLeft + fromRight) / 2 <= (toLeft + toRight) / 2;
+        startX = fromIsLeft ? fromRight : fromLeft;
+        endX = fromIsLeft ? toLeft : toRight;
+        startY = (fromTop + fromBottom) / 2;
+        endY = (toTop + toBottom) / 2;
+      } else {
+        const fromIsAbove = fromBottom <= toTop || (fromTop + fromBottom) / 2 <= (toTop + toBottom) / 2;
+        startY = fromIsAbove ? fromBottom : fromTop;
+        endY = fromIsAbove ? toTop : toBottom;
+        startX = (fromLeft + fromRight) / 2;
+        endX = (toLeft + toRight) / 2;
+      }
+
+      const path = `M ${startX} ${startY} L ${endX} ${endY}`;
 
       return {
         edge,
@@ -211,14 +229,14 @@ function BridgeOverlay({
       <defs>
         <marker
           id="bridge-arrow"
-          markerHeight="8"
-          markerWidth="8"
+          markerHeight="5"
+          markerWidth="5"
           orient="auto"
-          refX="7"
-          refY="4"
-          viewBox="0 0 8 8"
+          refX="5"
+          refY="2.5"
+          viewBox="0 0 5 5"
         >
-          <path d="M 0 0 L 8 4 L 0 8 z" className="fill-primary" />
+          <path d="M 0 0 L 5 2.5 L 0 5 z" className="fill-primary/50" />
         </marker>
       </defs>
       {visibleEdges.map(({ edge, path, labelX, labelY }) => (
@@ -228,7 +246,7 @@ function BridgeOverlay({
             className="fill-none stroke-primary/30"
             markerEnd="url(#bridge-arrow)"
             strokeLinecap="round"
-            strokeWidth="3"
+            strokeWidth="1.5"
           />
           {debug ? (
             <foreignObject

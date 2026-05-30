@@ -16,7 +16,10 @@ import {
 
 export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetComponentProps) {
   const result = isRecord(input.result) ? input.result : {};
-  const contacts = pick(asRecords(input.contacts), asRecords(result.contacts), input.contact, result.contact);
+  const contacts = filterContactsByTags(
+    pick(asRecords(input.contacts), asRecords(result.contacts), input.contact, result.contact),
+    tagsFromInput(input),
+  );
   const groups = pick(asRecords(input.groups), asRecords(result.groups), input.group, result.group);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -220,4 +223,31 @@ function pick(
   if (isRecord(inputSingle)) return [inputSingle];
   if (isRecord(resultSingle)) return [resultSingle];
   return [];
+}
+
+function normalizeTag(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function tagsFromInput(input: Record<string, unknown>): string[] {
+  const directTag = normalizeTag(input.tag);
+  const tagList = getArray(input, "tags")
+    .map(normalizeTag)
+    .filter((tag): tag is string => tag !== null);
+  return directTag ? [directTag, ...tagList] : tagList;
+}
+
+function filterContactsByTags(
+  contacts: Record<string, unknown>[],
+  tags: string[],
+): Record<string, unknown>[] {
+  if (tags.length === 0) return contacts;
+  const requestedTags = new Set(tags);
+  return contacts.filter((contact) =>
+    getArray(contact, "tags")
+      .map(normalizeTag)
+      .some((tag) => tag !== null && requestedTags.has(tag)),
+  );
 }
