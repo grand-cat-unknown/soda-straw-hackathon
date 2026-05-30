@@ -1,7 +1,13 @@
 "use client";
 
+import {
+  actionCapabilityId,
+  actionRefreshBindings,
+  bindingCapabilityId,
+  bindingResultPath,
+  findToolCandidate,
+} from "@/lib/workspace/bindings";
 import { canvasStore } from "@/lib/workspace/store";
-import { getWidgetContract } from "@/lib/workspace/contracts";
 import type {
   NodeId,
   ToolAction,
@@ -88,27 +94,6 @@ function applyTransform(value: unknown, transform?: string): unknown {
   }
 }
 
-function bindingCapabilityId(binding: ToolBinding): string | undefined {
-  return (
-    binding.capabilityId ??
-    (binding as unknown as { capability_id?: string }).capability_id
-  );
-}
-
-function bindingResultPath(
-  node: WidgetNode,
-  name: string,
-  binding: ToolBinding,
-): string | undefined {
-  return (
-    binding.resultPath ??
-    (binding as unknown as { result_path?: string }).result_path ??
-    getWidgetContract(node.type)?.toolCandidates?.find(
-      (candidate) => candidate.inputPort === name,
-    )?.resultPath
-  );
-}
-
 export async function refreshWidgetBindings(
   nodeId: NodeId,
   bindingNames?: string[],
@@ -131,16 +116,14 @@ export async function refreshWidgetBindings(
     if (requested.size > 0 && !requested.has(name)) continue;
     const capabilityId =
       bindingCapabilityId(binding) ??
-      getWidgetContract(node.type)?.toolCandidates?.find(
-        (candidate) => candidate.inputPort === name,
-      )?.capabilityId;
+      findToolCandidate(node.type, name)?.capabilityId;
     if (!capabilityId) {
       console.warn("[binding] missing capabilityId", { nodeId, name, binding });
       continue;
     }
     try {
       const output = await callCapability(capabilityId, binding.params ?? {});
-      const resultPath = bindingResultPath(node, name, binding);
+      const resultPath = bindingResultPath(node.type, name, binding);
       const resolved = applyTransform(
         pickResultPath(output, resultPath ?? "$"),
         binding.transform,
@@ -186,9 +169,7 @@ export async function runWidgetAction(
   if (!action) {
     throw new Error(`${node.title} does not define action ${actionName}.`);
   }
-  const capabilityId =
-    action.capabilityId ??
-    (action as unknown as { capability_id?: string }).capability_id;
+  const capabilityId = actionCapabilityId(action);
   if (!capabilityId) {
     throw new Error(`${actionName} does not define a capabilityId.`);
   }
@@ -196,10 +177,7 @@ export async function runWidgetAction(
     capabilityId,
     mergeParams(action, payload),
   );
-  const refresh =
-    action.refreshBindings ??
-    (action as unknown as { refresh_bindings?: string[] }).refresh_bindings ??
-    [];
+  const refresh = actionRefreshBindings(action);
   if (refresh.length > 0) {
     await refreshWidgetBindings(node.id, refresh);
   }

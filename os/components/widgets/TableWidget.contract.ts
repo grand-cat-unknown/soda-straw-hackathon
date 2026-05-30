@@ -1,4 +1,8 @@
-import { TableSchema } from "@/lib/workspace/schemas";
+import {
+  TableSchema,
+  UnknownArraySchema,
+  UnknownRecordSchema,
+} from "@/lib/workspace/schemas";
 import type { WidgetContract } from "@/lib/workspace/types";
 
 export const TableWidgetContract: WidgetContract = {
@@ -9,6 +13,16 @@ export const TableWidgetContract: WidgetContract = {
     table: {
       schema: TableSchema,
       description: "Structured table data to render.",
+    },
+    row: {
+      schema: UnknownRecordSchema,
+      description: "Single record to append into the rendered table.",
+      optional: true,
+    },
+    rows: {
+      schema: UnknownArraySchema,
+      description: "Records to append into the rendered table.",
+      optional: true,
     },
   },
   outputs: {

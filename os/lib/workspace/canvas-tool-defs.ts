@@ -44,7 +44,7 @@ export const canvasToolDefs: CanvasToolDef[] = [
     type: "function",
     name: "canvas_announce_plan",
     description:
-      "Announce the workspace plan BEFORE building anything. MUST be your first tool call when the user states a new broad intent. Lists the widgets you intend to add and the bridges you intend to wire between them so the user can see the plan in chat. Does not mutate the canvas.",
+      "Announce the workspace plan BEFORE building anything. MUST be your first tool call when the user states a new broad intent. Lists the widgets you intend to add and the bridges you intend to wire between them so the user can see the plan in chat. Does not mutate the canvas. Bridges are the most fragile piece of the workspace: before listing one here, you MUST mentally walk through the six bridge-reasoning checks (gesture, source port exists in contract, target port exists in contract, schema match or registered transform, target actually needs live input rather than a binding, no feedback loop) and only include bridges that pass all six. Prefer fewer, correct bridges over many speculative ones — a missing bridge can be added later, but a wrong bridge breaks the workspace.",
     parameters: {
       type: "object",
       properties: {
@@ -96,7 +96,11 @@ export const canvasToolDefs: CanvasToolDef[] = [
                 additionalProperties: false,
               },
               transform: { type: "string" },
-              rationale: { type: "string" },
+              rationale: {
+                type: "string",
+                description:
+                  "Explicit per-bridge reasoning. MUST cover: (1) the user gesture that triggers it, (2) why this exact source port fires on that gesture, (3) why the target needs this live input instead of relying on its own binding, (4) schema compatibility (identity or which transform). One or two sentences is fine, but all four points must be present.",
+              },
             },
             required: ["from", "to", "rationale"],
             additionalProperties: false,
@@ -209,7 +213,7 @@ export const canvasToolDefs: CanvasToolDef[] = [
     type: "function",
     name: "canvas_add_bridge",
     description:
-      "Create a bridge from a source output port to a target input port. Returns the bridge id or a rejection reason.",
+      "Create a bridge from a source output port to a target input port. Returns the bridge id or a rejection reason. Before calling, you must have walked through the six bridge-reasoning checks: (1) a real user gesture triggers it, (2) the source port fires on that gesture, (3) the target port exists in its contract, (4) schemas match or a registered transform bridges them, (5) the target genuinely needs live input (not just its binding), (6) no feedback loop. If you are unsure about schema shape, call canvas_preview_bridge first. Wrong bridges are worse than missing ones.",
     parameters: {
       type: "object",
       properties: {

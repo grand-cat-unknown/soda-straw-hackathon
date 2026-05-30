@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { WidgetComponentProps, WorkspaceTable } from "@/lib/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type RecordValue = Record<string, unknown>;
+
 export function TableCanvasWidget({
   node,
   input,
@@ -22,18 +24,23 @@ export function TableCanvasWidget({
   runAction,
 }: WidgetComponentProps) {
   const table = input.table as WorkspaceTable | undefined;
-  return table ? (
+  const bridgedRows = useBridgedRows(input);
+  const renderedTable = useMemo(
+    () => (table ? mergeRows(table, bridgedRows) : undefined),
+    [table, bridgedRows],
+  );
+  return renderedTable ? (
     <TableWidget
-      table={table}
+      table={renderedTable}
       variant="embedded"
       onSelectedRowsChange={(rows) => emitOutput("selectedRows", rows)}
       onAddRow={
         node.actions?.addRow
           ? () =>
               runAction("addRow", {
-                table_id: table.id,
+                table_id: renderedTable.id,
                 values: Object.fromEntries(
-                  table.columns.map((column) => [column.name, ""]),
+                  renderedTable.columns.map((column) => [column.name, ""]),
                 ),
               })
           : undefined
@@ -204,4 +211,85 @@ function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+function isRecord(value: unknown): value is RecordValue {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function asRecords(value: unknown): RecordValue[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function useBridgedRows(input: WidgetComponentProps["input"]): RecordValue[] {
+  const [rows, setRows] = useState<RecordValue[]>([]);
+
+  useEffect(() => {
+    const incoming = [
+      ...(isRecord(input.row) ? [input.row] : []),
+      ...asRecords(input.rows),
+    ];
+    if (incoming.length === 0) return;
+
+    setRows((current) => mergeRecordList(current, incoming));
+  }, [input.row, input.rows]);
+
+  return rows;
+}
+
+function mergeRecordList(
+  current: RecordValue[],
+  incoming: RecordValue[],
+): RecordValue[] {
+  const byKey = new Map(current.map((row) => [recordKey(row), row]));
+  for (const row of incoming) {
+    byKey.set(recordKey(row), row);
+  }
+  return [...byKey.values()];
+}
+
+function recordKey(record: RecordValue): string {
+  return String(
+    record.id ??
+      record.email ??
+      record.name ??
+      JSON.stringify(record),
+  );
+}
+
+function mergeRows(table: WorkspaceTable, records: RecordValue[]): WorkspaceTable {
+  if (records.length === 0) return table;
+  const existingIds = new Set(table.rows.map((row) => row.id));
+  const appendedRows = records
+    .map((record) => recordToTableRow(record, table.columns))
+    .filter((row) => !existingIds.has(row.id));
+
+  if (appendedRows.length === 0) return table;
+
+  return {
+    ...table,
+    rows: [...table.rows, ...appendedRows],
+  };
+}
+
+function recordToTableRow(
+  record: RecordValue,
+  columns: WorkspaceTable["columns"],
+): WorkspaceTable["rows"][number] {
+  if (isRecord(record.values)) {
+    const values = record.values;
+    return {
+      id: String(record.id ?? `row:${recordKey(values)}`),
+      values: Object.fromEntries(
+        columns.map((column) => [column.name, values[column.name]]),
+      ),
+    };
+  }
+
+  return {
+    id: String(record.id ?? `row:${recordKey(record)}`),
+    values: Object.fromEntries(
+      columns.map((column) => [column.name, record[column.name]]),
+    ),
+  };
 }

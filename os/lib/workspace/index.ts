@@ -1,4 +1,5 @@
 export * from "@/lib/workspace/registry";
+export * from "@/lib/workspace/bindings";
 export * from "@/lib/workspace/bridges";
 export * from "@/lib/workspace/canvas-tool-defs";
 export * from "@/lib/workspace/canvas-tools";

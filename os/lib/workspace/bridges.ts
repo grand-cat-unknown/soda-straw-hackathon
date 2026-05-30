@@ -115,6 +115,24 @@ function schemaScore(from: JsonSchema, to: JsonSchema): number {
   return 0;
 }
 
+function semanticScore(fromPort: string, toPort: string): number {
+  const from = fromPort.toLowerCase();
+  const to = toPort.toLowerCase();
+  let score = 0;
+
+  if (from.startsWith("selected") && /^(row|rows|item|items|record|records)$/.test(to)) {
+    score += 3;
+  }
+  if (from.startsWith("selected") && /^(contacts|groups|events|tasks|notes|files)$/.test(to)) {
+    score -= 2;
+  }
+  if (from.endsWith(to) || to.endsWith(from)) {
+    score += 1;
+  }
+
+  return score;
+}
+
 function bridgeAlreadyExists(
   state: CanvasState,
   from: { nodeId: NodeId; port: string },
@@ -162,7 +180,9 @@ export function suggestBridges(
           to: { nodeId: newNodeId, port: inName },
           fromType: existingNode.type,
           toType: newNode.type,
-          score: schemaScore(outPort.schema, inPort.schema),
+          score:
+            schemaScore(outPort.schema, inPort.schema) +
+            semanticScore(outName, inName),
         });
       }
     }
@@ -184,7 +204,9 @@ export function suggestBridges(
           to: { nodeId: existingId, port: inName },
           fromType: newNode.type,
           toType: existingNode.type,
-          score: schemaScore(outPort.schema, inPort.schema),
+          score:
+            schemaScore(outPort.schema, inPort.schema) +
+            semanticScore(outName, inName),
         });
       }
     }

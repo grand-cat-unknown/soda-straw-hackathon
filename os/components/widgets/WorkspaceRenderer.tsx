@@ -18,6 +18,7 @@ import {
   getWidgetContract,
   refreshWidgetBindings,
   runWidgetAction,
+  shouldRefreshBindingOnMount,
   useCanvasState,
   widgetRegistry,
 } from "@/lib/workspace";
@@ -412,32 +413,11 @@ function WidgetBody({
   emitOutput: (port: string, value: unknown) => void;
 }) {
   const Renderer = widgetRenderers[node.type] ?? fallbackWidgetRenderer;
-  const contract = getWidgetContract(node.type);
   const onMountBindings = JSON.stringify(
     Object.entries(node.bindings ?? {})
-      .filter(([name, binding]) => {
-        const refresh =
-          binding.refresh ??
-          (binding as unknown as { refresh?: string }).refresh;
-        const normalizedRefresh =
-          typeof refresh === "string"
-            ? refresh.toLowerCase().replace(/[^a-z]/g, "")
-            : refresh;
-        const capabilityId =
-          binding.capabilityId ??
-          (binding as unknown as { capability_id?: string }).capability_id;
-        const isPrimaryDataBinding = contract?.toolCandidates?.some(
-          (candidate) =>
-            candidate.inputPort === name &&
-            candidate.capabilityId === capabilityId &&
-            !/\.(get|read|fetch_by_id)$/.test(candidate.capabilityId),
-        );
-        return (
-          refresh === undefined ||
-          normalizedRefresh === "onmount" ||
-          isPrimaryDataBinding
-        );
-      })
+      .filter(([name, binding]) =>
+        shouldRefreshBindingOnMount(node.type, name, binding),
+      )
       .map(([name]) => name),
   );
 
