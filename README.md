@@ -1,6 +1,14 @@
-# Soda Straw Hackathon
+# Fluid OS
 
-Prototype repo for a Fluid Modular OS: an intent-driven workspace that assembles UI modules and tool calls around what the user wants to do.
+Prototype repo for Fluid OS: an intent-driven operating surface that assembles
+widgets, bridges, and Soda Straw-backed tool calls around what the user wants to
+do.
+
+Fluid OS treats Soda Straw as the capability backbone for MCPs, APIs, databases,
+and external tools. The OS layer then builds ephemeral workspaces from
+deterministic widgets, wiring them together on the fly for the current task.
+
+Read the deeper project framing in [`os/README.md`](os/README.md).
 
 ## Repo Structure
 
