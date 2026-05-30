@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import type { WidgetComponentProps } from "@/lib/workspace";
 import {
   asRecords,
-  compactJson,
   EmptyWidget,
   getArray,
   getString,
   isRecord,
+  WidgetBadges,
+  WidgetItem,
+  WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
 export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -43,32 +45,22 @@ export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
       {contacts.length > 0 ? (
         <section className="space-y-2">
           {contacts.map((contact, index) => (
-            <div
+            <WidgetItem
               key={getString(contact, "id") ?? `contact:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <div className="break-words text-sm font-medium">
                     {getString(contact, "name") ?? `Contact ${index + 1}`}
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {getString(contact, "relationship") ? <span>{getString(contact, "relationship")}</span> : null}
-                    {getString(contact, "city") ? <span>{getString(contact, "city")}</span> : null}
-                    {getString(contact, "email") ? <span>{getString(contact, "email")}</span> : null}
-                  </div>
-                  {getArray(contact, "tags").length ? (
-                    <div className="flex flex-wrap gap-1">
-                      {getArray(contact, "tags").map((tag) => (
-                        <span
-                          key={compactJson(tag)}
-                          className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                        >
-                          {compactJson(tag)}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                  <WidgetMeta
+                    items={[
+                      getString(contact, "relationship"),
+                      getString(contact, "city"),
+                      getString(contact, "email"),
+                    ]}
+                  />
+                  <WidgetBadges items={getArray(contact, "tags")} />
                 </div>
                 <Button
                   type="button"
@@ -78,7 +70,7 @@ export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
                   Select
                 </Button>
               </div>
-            </div>
+            </WidgetItem>
           ))}
         </section>
       ) : null}
@@ -87,9 +79,8 @@ export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
         <section className="space-y-2">
           <div className="text-sm font-medium">Groups</div>
           {groups.map((group, index) => (
-            <div
+            <WidgetItem
               key={getString(group, "id") ?? `group:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -108,7 +99,7 @@ export function ContactsWidget({ input, emitOutput }: WidgetComponentProps) {
                   Select
                 </Button>
               </div>
-            </div>
+            </WidgetItem>
           ))}
         </section>
       ) : null}

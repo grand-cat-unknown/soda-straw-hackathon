@@ -4,6 +4,16 @@ import { useMemo, useState } from "react";
 
 import type { WidgetComponentProps, WorkspaceTable } from "@/lib/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function TableCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
   const table = input.table as WorkspaceTable | undefined;
@@ -91,70 +101,67 @@ function TableContent({
             {selectedRows.length} selected
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
-              className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+              variant="outline"
+              size="sm"
               onClick={selectAll}
             >
               Select all
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+              variant="outline"
+              size="sm"
               onClick={clearSelection}
             >
               Clear
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border text-left">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {onSelectedRowsChange ? (
+              <TableHead className="w-8">
+                <span className="sr-only">Select row</span>
+              </TableHead>
+            ) : null}
+            {table.columns.map((col) => (
+              <TableHead key={col.name}>
+                {col.name}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  {col.type}
+                </span>
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {table.rows.map((row) => (
+            <TableRow
+              key={row.id}
+              data-state={selectedIds[row.id] ? "selected" : undefined}
+            >
               {onSelectedRowsChange ? (
-                <th className="w-8 px-2 py-1">
-                  <span className="sr-only">Select row</span>
-                </th>
+                <TableCell>
+                  <Checkbox
+                    checked={Boolean(selectedIds[row.id])}
+                    onChange={() => toggleRow(row.id)}
+                    aria-label={`Select ${row.id}`}
+                  />
+                </TableCell>
               ) : null}
               {table.columns.map((col) => (
-                <th key={col.name} className="px-2 py-1 font-medium">
-                  {col.name}
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    {col.type}
-                  </span>
-                </th>
+                <TableCell key={col.name}>
+                  {formatValue(row.values[col.name])}
+                </TableCell>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {table.rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/50 data-[selected=true]:bg-accent/50"
-                data-selected={Boolean(selectedIds[row.id])}
-              >
-                {onSelectedRowsChange ? (
-                  <td className="px-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedIds[row.id])}
-                      onChange={() => toggleRow(row.id)}
-                      aria-label={`Select ${row.id}`}
-                      className="h-4 w-4 rounded border-border"
-                    />
-                  </td>
-                ) : null}
-                {table.columns.map((col) => (
-                  <td key={col.name} className="px-2 py-1">
-                    {formatValue(row.values[col.name])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

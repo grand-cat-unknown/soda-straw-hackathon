@@ -12,6 +12,8 @@ import {
   getArray,
   getString,
   isRecord,
+  WidgetItem,
+  WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
 export function MessagesWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -34,19 +36,21 @@ export function MessagesWidget({ input, emitOutput }: WidgetComponentProps) {
   return (
     <div className="space-y-3">
       {draft ? (
-        <section className="space-y-2 rounded-md border border-border p-3">
+        <WidgetItem className="space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <div className="break-words text-sm font-medium">
                 {getString(draft, "subject") ?? "Draft message"}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {getString(draft, "channel") ? <span>{getString(draft, "channel")}</span> : null}
-                {getString(draft, "tone") ? <span>{getString(draft, "tone")}</span> : null}
-                {getArray(draft, "recipients").length ? (
-                  <span>{getArray(draft, "recipients").map(compactJson).join(", ")}</span>
-                ) : null}
-              </div>
+              <WidgetMeta
+                items={[
+                  getString(draft, "channel"),
+                  getString(draft, "tone"),
+                  getArray(draft, "recipients").length
+                    ? getArray(draft, "recipients").map(compactJson).join(", ")
+                    : undefined,
+                ]}
+              />
             </div>
             <Button type="button" variant="outline" onClick={() => emitOutput("draft", draft)}>
               Use draft
@@ -57,7 +61,7 @@ export function MessagesWidget({ input, emitOutput }: WidgetComponentProps) {
               {getString(draft, "body")}
             </p>
           ) : null}
-        </section>
+        </WidgetItem>
       ) : null}
 
       {sent ? (
@@ -86,12 +90,11 @@ export function MessagesWidget({ input, emitOutput }: WidgetComponentProps) {
         <section className="space-y-2">
           <div className="text-sm font-medium">Replies</div>
           {replies.map((reply, index) => (
-            <pre
+            <WidgetItem
               key={getString(reply, "id") ?? `reply:${index}`}
-              className="overflow-auto rounded-md bg-muted p-3 text-xs"
             >
-              {JSON.stringify(reply, null, 2)}
-            </pre>
+              <pre className="overflow-auto text-xs">{JSON.stringify(reply, null, 2)}</pre>
+            </WidgetItem>
           ))}
         </section>
       ) : null}
@@ -120,20 +123,16 @@ function StatusCard({
   onSelect: () => void;
 }) {
   return (
-    <div className="rounded-md border border-border p-3">
+    <WidgetItem>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="break-words text-sm font-medium">{title}</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {details.filter(Boolean).map((detail) => (
-              <span key={detail}>{detail}</span>
-            ))}
-          </div>
+          <WidgetMeta items={details} />
         </div>
         <Button type="button" variant="outline" onClick={onSelect}>
           Select
         </Button>
       </div>
-    </div>
+    </WidgetItem>
   );
 }

@@ -4,16 +4,16 @@ import { MapPinned } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { Place, WidgetComponentProps } from "@/lib/workspace";
+import { EmptyWidget } from "@/components/widgets/widget-utils";
 
 export function MarkerDetailWidget({ input, emitOutput }: WidgetComponentProps) {
   const marker = input.marker as Place | null | undefined;
 
   if (!marker) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <MapPinned className="h-4 w-4" aria-hidden />
+      <EmptyWidget icon={<MapPinned className="h-4 w-4" aria-hidden />}>
         Select a marker on the map.
-      </div>
+      </EmptyWidget>
     );
   }
 

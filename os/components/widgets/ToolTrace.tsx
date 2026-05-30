@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prettyToolName, type ToolCallTrace } from "@/lib/workspace";
 
@@ -29,10 +31,11 @@ function TraceRow({ trace }: { trace: ToolCallTrace }) {
 
   return (
     <div className="rounded border border-border bg-muted/30">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+        className="h-auto w-full justify-between rounded-none px-3 py-2 text-left"
       >
         <span className="flex items-center gap-2">
           <ChevronRight
@@ -41,12 +44,13 @@ function TraceRow({ trace }: { trace: ToolCallTrace }) {
           />
           <code className="text-xs">{prettyToolName(trace.name)}</code>
         </span>
-        <span
-          className={`text-xs ${failed ? "text-destructive" : "text-muted-foreground"}`}
+        <Badge
+          variant={failed ? "outline" : "secondary"}
+          className={failed ? "text-destructive" : ""}
         >
           {failed ? "error" : "ok"}
-        </span>
-      </button>
+        </Badge>
+      </Button>
       {open ? (
         <div className="space-y-2 border-t border-border px-3 py-2 text-xs">
           <div>

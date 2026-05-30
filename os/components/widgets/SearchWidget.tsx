@@ -10,6 +10,8 @@ import {
   getNumber,
   getString,
   isRecord,
+  WidgetItem,
+  WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
 export function SearchWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -38,22 +40,23 @@ export function SearchWidget({ input, emitOutput }: WidgetComponentProps) {
         {results.map((item, index) => {
           const url = getString(item, "url");
           return (
-            <article
+            <WidgetItem
               key={url ?? getString(item, "title") ?? `result:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <div className="break-words text-sm font-medium">
                     {getString(item, "title") ?? `Result ${index + 1}`}
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {getString(item, "source") ? <span>{getString(item, "source")}</span> : null}
-                    {getString(item, "published_date") ? <span>{getString(item, "published_date")}</span> : null}
-                    {getNumber(item, "score") !== undefined ? (
-                      <span>Score {getNumber(item, "score")?.toFixed(3)}</span>
-                    ) : null}
-                  </div>
+                  <WidgetMeta
+                    items={[
+                      getString(item, "source"),
+                      getString(item, "published_date"),
+                      getNumber(item, "score") !== undefined
+                        ? `Score ${getNumber(item, "score")?.toFixed(3)}`
+                        : undefined,
+                    ]}
+                  />
                 </div>
                 <div className="flex shrink-0 gap-2">
                   {url ? (
@@ -86,7 +89,7 @@ export function SearchWidget({ input, emitOutput }: WidgetComponentProps) {
                   {url}
                 </div>
               ) : null}
-            </article>
+            </WidgetItem>
           );
         })}
       </div>

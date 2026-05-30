@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -129,20 +130,20 @@ function WidgetFrame({
         {contract ? (
           <div className="flex flex-wrap gap-1.5">
             {Object.keys(contract.inputs).map((port) => (
-              <span
+              <Badge
                 key={`in:${port}`}
-                className="rounded border border-border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                variant="secondary"
               >
                 in:{port}
-              </span>
+              </Badge>
             ))}
             {Object.keys(contract.outputs).map((port) => (
-              <span
+              <Badge
                 key={`out:${port}`}
-                className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                variant="outline"
               >
                 out:{port}
-              </span>
+              </Badge>
             ))}
           </div>
         ) : null}

@@ -4,6 +4,7 @@ import { Calculator, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { WidgetComponentProps } from "@/lib/workspace";
+import { WidgetItem } from "@/components/widgets/widget-utils";
 
 type RankedOption = {
   option?: Record<string, unknown>;
@@ -82,9 +83,8 @@ export function CalculatorWidget({
               const option = item.option ?? {};
               const label = optionLabel(option, index);
               return (
-                <div
+                <WidgetItem
                   key={`${label}:${index}`}
-                  className="rounded-md border border-border p-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -117,7 +117,7 @@ export function CalculatorWidget({
                       ))}
                     </dl>
                   ) : null}
-                </div>
+                </WidgetItem>
               );
             })}
           </div>

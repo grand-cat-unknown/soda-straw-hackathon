@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Place, Route, WidgetComponentProps } from "@/lib/workspace";
 
@@ -32,14 +33,15 @@ export function MapCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
       {markers.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {markers.map((marker) => (
-            <button
+            <Button
               key={marker.id}
               type="button"
-              className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+              variant="outline"
+              size="sm"
               onClick={() => emitOutput("selectedMarker", marker)}
             >
               {marker.label ?? marker.id}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}

@@ -10,6 +10,7 @@ import {
   formatDateTime,
   getString,
   isRecord,
+  WidgetItem,
 } from "@/components/widgets/widget-utils";
 
 export function CalendarWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -95,7 +96,7 @@ function CalendarCard({
   onSelect: () => void;
 }) {
   return (
-    <div className="rounded-md border border-border p-3">
+    <WidgetItem>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="break-words text-sm font-medium">{primary}</div>
@@ -106,6 +107,6 @@ function CalendarCard({
           Select
         </Button>
       </div>
-    </div>
+    </WidgetItem>
   );
 }

@@ -12,6 +12,8 @@ import {
   getArray,
   getString,
   isRecord,
+  WidgetBadges,
+  WidgetItem,
 } from "@/components/widgets/widget-utils";
 
 export function FormsWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -44,25 +46,19 @@ export function FormsWidget({ input, emitOutput }: WidgetComponentProps) {
       {forms.length > 0 ? (
         <section className="space-y-2">
           {forms.map((form, index) => (
-            <div
+            <WidgetItem
               key={getString(form, "id") ?? `form:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-2">
                   <div className="break-words text-sm font-medium">
                     {getString(form, "title") ?? `Form ${index + 1}`}
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {asRecords(getArray(form, "fields")).map((field) => (
-                      <span
-                        key={getString(field, "name") ?? compactJson(field)}
-                        className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                      >
-                        {getString(field, "name") ?? "field"}
-                      </span>
-                    ))}
-                  </div>
+                  <WidgetBadges
+                    items={asRecords(getArray(form, "fields")).map(
+                      (field) => getString(field, "name") ?? compactJson(field),
+                    )}
+                  />
                   {getString(form, "share_url") ? (
                     <div className="break-all font-mono text-xs text-muted-foreground">
                       {getString(form, "share_url")}
@@ -77,7 +73,7 @@ export function FormsWidget({ input, emitOutput }: WidgetComponentProps) {
                   Select
                 </Button>
               </div>
-            </div>
+            </WidgetItem>
           ))}
         </section>
       ) : null}
@@ -86,9 +82,8 @@ export function FormsWidget({ input, emitOutput }: WidgetComponentProps) {
         <section className="space-y-2">
           <div className="text-sm font-medium">Responses</div>
           {responses.map((response, index) => (
-            <div
+            <WidgetItem
               key={getString(response, "id") ?? `response:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
@@ -117,7 +112,7 @@ export function FormsWidget({ input, emitOutput }: WidgetComponentProps) {
                   Select
                 </Button>
               </div>
-            </div>
+            </WidgetItem>
           ))}
         </section>
       ) : null}

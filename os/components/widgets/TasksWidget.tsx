@@ -10,6 +10,8 @@ import {
   formatDate,
   getString,
   isRecord,
+  WidgetItem,
+  WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
 export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -61,9 +63,8 @@ export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
           const status = getString(task, "status") ?? "open";
           const title = getString(task, "title") ?? `Task ${index + 1}`;
           return (
-            <div
+            <WidgetItem
               key={getString(task, "id") ?? `${title}:${index}`}
-              className="rounded-md border border-border p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
@@ -73,13 +74,17 @@ export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
                     ) : (
                       <Circle className="h-4 w-4 text-muted-foreground" />
                     )}
-                    <div className="break-words text-sm font-medium">{title}</div>
+                      <div className="break-words text-sm font-medium">{title}</div>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>{status}</span>
-                    {getString(task, "owner") ? <span>{getString(task, "owner")}</span> : null}
-                    {getString(task, "due") ? <span>{formatDate(getString(task, "due"))}</span> : null}
-                  </div>
+                  <WidgetMeta
+                    items={[
+                      status,
+                      getString(task, "owner"),
+                      getString(task, "due")
+                        ? formatDate(getString(task, "due"))
+                        : undefined,
+                    ]}
+                  />
                 </div>
                 <Button
                   type="button"
@@ -89,7 +94,7 @@ export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
                   Select
                 </Button>
               </div>
-            </div>
+            </WidgetItem>
           );
         })}
       </div>

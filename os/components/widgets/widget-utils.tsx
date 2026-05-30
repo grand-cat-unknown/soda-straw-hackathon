@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
 export type RecordValue = Record<string, unknown>;
 
 export function isRecord(value: unknown): value is RecordValue {
@@ -85,6 +88,63 @@ export function EmptyWidget({
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
       {icon}
       {children}
+    </div>
+  );
+}
+
+export function WidgetItem({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-md border border-border bg-card p-3", className)}>
+      {children}
+    </div>
+  );
+}
+
+export function WidgetMeta({
+  items,
+  className,
+}: {
+  items: (string | undefined)[];
+  className?: string;
+}) {
+  const visibleItems = items.filter(
+    (item): item is string => typeof item === "string" && item.length > 0,
+  );
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground",
+        className,
+      )}
+    >
+      {visibleItems.map((item) => (
+        <span key={item}>{item}</span>
+      ))}
+    </div>
+  );
+}
+
+export function WidgetBadges({ items }: { items: unknown[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item) => {
+        const label = compactJson(item);
+        return (
+          <Badge key={label} variant="outline" className="max-w-full truncate">
+            {label}
+          </Badge>
+        );
+      })}
     </div>
   );
 }

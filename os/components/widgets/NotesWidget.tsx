@@ -10,6 +10,7 @@ import {
   formatDateTime,
   getString,
   isRecord,
+  WidgetItem,
 } from "@/components/widgets/widget-utils";
 
 export function NotesWidget({ input, emitOutput }: WidgetComponentProps) {
@@ -36,9 +37,8 @@ export function NotesWidget({ input, emitOutput }: WidgetComponentProps) {
         const title = getString(note, "title") ?? `Note ${index + 1}`;
         const body = getString(note, "body") ?? "";
         return (
-          <article
+          <WidgetItem
             key={getString(note, "id") ?? `${title}:${index}`}
-            className="rounded-md border border-border p-3"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
@@ -65,7 +65,7 @@ export function NotesWidget({ input, emitOutput }: WidgetComponentProps) {
                 Updated {formatDateTime(getString(note, "updated_at"))}
               </div>
             ) : null}
-          </article>
+          </WidgetItem>
         );
       })}
     </div>
