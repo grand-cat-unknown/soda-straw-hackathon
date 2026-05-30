@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Basic OpenAI Chat",
-  description: "A tiny Next.js chat surface backed by OpenAI.",
+  title: "Fluid OS",
+  description: "Intent-driven workspace assembled from modular tools.",
 };
 
 export default function RootLayout({

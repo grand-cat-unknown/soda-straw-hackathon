@@ -1,7 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Send } from "lucide-react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { RotateCcw, Send, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,91 +19,300 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { ActivityTicker } from "@/components/widgets/ActivityTicker";
+import { CanvasHost } from "@/components/widgets/CanvasHost";
+import { ToolTrace } from "@/components/widgets/ToolTrace";
+import {
+  buildWorkspace,
+  type PendingCall,
+  type ToolCallTrace,
+} from "@/lib/workspace";
+
+type StreamEvent =
+  | { type: "text.delta"; delta: string }
+  | { type: "tool.start"; id: string; name: string; server_label: string }
+  | { type: "tool.done"; trace: ToolCallTrace }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+const EXAMPLES = [
+  "Plan a 25-person birthday party in 4 weeks.",
+  "Plan a 10-day September trip that feels intentional.",
+  "Set up a launch checklist for a small product release.",
+];
 
 export default function Home() {
-  const [message, setMessage] = useState("");
+  const [intent, setIntent] = useState("");
   const [reply, setReply] = useState("");
+  const [traces, setTraces] = useState<ToolCallTrace[]>([]);
+  const [pending, setPending] = useState<PendingCall[]>([]);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [catalog, setCatalog] = useState<{ name: string; description: string }[]>(
+    [],
+  );
+  const abortRef = useRef<AbortController | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setReply("");
-
-    const trimmed = message.trim();
-    if (!trimmed) {
-      setError("Type something first.");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/catalog")
+      .then((r) => r.json())
+      .then((data: { catalog?: { name: string; description: string }[] }) => {
+        if (!cancelled && Array.isArray(data.catalog)) setCatalog(data.catalog);
+      })
+      .catch(() => {
+        // best-effort; the catalog is decorative
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      const data = (await response.json()) as { reply?: string; error?: string };
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIntent("");
+    setReply("");
+    setTraces([]);
+    setPending([]);
+    setError("");
+    setIsStreaming(false);
+  }, []);
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "The model did not respond.");
+  const submit = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        setError("Type an intent first.");
+        return;
       }
 
-      setReply(data.reply ?? "");
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Something went wrong.",
-      );
-    } finally {
-      setIsLoading(false);
+      setError("");
+      setReply("");
+      setTraces([]);
+      setPending([]);
+      setIsStreaming(true);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          const fallback = await response.json().catch(() => ({}));
+          throw new Error(
+            (fallback as { error?: string }).error ?? "The model did not respond.",
+          );
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex = buffer.indexOf("\n");
+          while (newlineIndex !== -1) {
+            const line = buffer.slice(0, newlineIndex).trim();
+            buffer = buffer.slice(newlineIndex + 1);
+            newlineIndex = buffer.indexOf("\n");
+            if (!line) continue;
+
+            let event: StreamEvent;
+            try {
+              event = JSON.parse(line) as StreamEvent;
+            } catch {
+              continue;
+            }
+
+            applyEvent(event);
+          }
+        }
+      } catch (caughtError) {
+        if ((caughtError as { name?: string })?.name === "AbortError") return;
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Something went wrong.",
+        );
+      } finally {
+        setIsStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [],
+  );
+
+  function applyEvent(event: StreamEvent) {
+    switch (event.type) {
+      case "text.delta":
+        setReply((prev) => prev + event.delta);
+        break;
+      case "tool.start":
+        setPending((prev) => [
+          ...prev,
+          {
+            id: event.id,
+            name: event.name,
+            server_label: event.server_label,
+          },
+        ]);
+        break;
+      case "tool.done":
+        setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
+        setTraces((prev) => [...prev, event.trace]);
+        break;
+      case "error":
+        setError(event.message);
+        break;
+      case "done":
+        break;
     }
   }
 
-  return (
-    <main className="min-h-screen bg-muted px-4 py-10 text-foreground">
-      <section className="mx-auto flex w-full max-w-2xl flex-col gap-5">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-normal">Basic chat</h1>
-        </div>
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submit(intent);
+  }
 
-        <Card>
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void submit(intent);
+    }
+  }
+
+  const workspace = buildWorkspace(traces);
+  const hasResult =
+    reply.length > 0 ||
+    traces.length > 0 ||
+    pending.length > 0 ||
+    workspace.canvases.length > 0 ||
+    workspace.tables.length > 0;
+
+  return (
+    <main className="min-h-screen px-4 py-12">
+      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <header className="flex items-end justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+              Fluid OS
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              State your intent.
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              The agent assembles a workspace from modular tools.
+            </p>
+          </div>
+          {hasResult ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={reset}
+              aria-label="Start over"
+            >
+              <RotateCcw aria-hidden />
+              New intent
+            </Button>
+          ) : null}
+        </header>
+
+        <Card className="fluid-enter">
           <CardHeader>
-            <CardTitle>Ask anything</CardTitle>
-            <CardDescription>One prompt, one reply.</CardDescription>
+            <CardTitle className="text-base">What do you want to do?</CardTitle>
+            <CardDescription>
+              {catalog.length > 0
+                ? `${catalog.length} tools available via Soda Straw.`
+                : "Try an example or describe your own."}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => setIntent(example)}
+                  className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
             <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
               <Textarea
-                aria-label="Message"
-                placeholder="Write a quick prompt..."
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
+                aria-label="Intent"
+                placeholder="Describe what you want to accomplish..."
+                value={intent}
+                onChange={(event) => setIntent(event.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isStreaming}
+                rows={3}
               />
               <div className="flex items-center justify-between gap-3">
                 <p className="min-h-5 text-sm text-destructive">{error}</p>
-                <Button disabled={isLoading} type="submit">
-                  <Send aria-hidden="true" />
-                  {isLoading ? "Sending" : "Send"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    ⌘ + Enter
+                  </span>
+                  <Button disabled={isStreaming} type="submit">
+                    <Send aria-hidden="true" />
+                    {isStreaming ? "Working" : "Send"}
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>
         </Card>
 
+        {!hasResult && catalog.length > 0 ? (
+          <div className="fluid-enter flex flex-wrap gap-1.5">
+            {catalog.map((entry) => (
+              <span
+                key={entry.name}
+                title={entry.description}
+                className="rounded border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+              >
+                {entry.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <ActivityTicker
+          pending={pending}
+          traces={traces}
+          isStreaming={isStreaming}
+        />
+
         {reply ? (
-          <Card>
+          <Card className="fluid-enter">
             <CardHeader>
-              <CardTitle>Response</CardTitle>
+              <CardTitle className="text-base">Assistant</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm leading-6">{reply}</p>
             </CardContent>
           </Card>
         ) : null}
+
+        <div className="fluid-enter">
+          <CanvasHost workspace={workspace} />
+        </div>
+
+        <ToolTrace traces={traces} />
       </section>
     </main>
   );

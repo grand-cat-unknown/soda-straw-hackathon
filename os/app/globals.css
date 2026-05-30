@@ -1,29 +1,87 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(224 71.4% 4.1%);
+  --color-background: hsl(40 20% 98%);
+  --color-foreground: hsl(224 30% 12%);
   --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(224 71.4% 4.1%);
-  --color-primary: hsl(220.9 39.3% 11%);
-  --color-primary-foreground: hsl(210 20% 98%);
-  --color-muted: hsl(220 14.3% 95.9%);
-  --color-muted-foreground: hsl(220 8.9% 46.1%);
+  --color-card-foreground: hsl(224 30% 12%);
+  --color-primary: hsl(224 35% 18%);
+  --color-primary-foreground: hsl(40 20% 98%);
+  --color-muted: hsl(40 18% 95%);
+  --color-muted-foreground: hsl(224 8% 42%);
   --color-accent: hsl(220 14.3% 95.9%);
   --color-accent-foreground: hsl(220.9 39.3% 11%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-border: hsl(220 13% 91%);
-  --color-input: hsl(220 13% 91%);
-  --color-ring: hsl(224 71.4% 4.1%);
+  --color-destructive: hsl(0 70% 48%);
+  --color-border: hsl(30 12% 88%);
+  --color-input: hsl(30 12% 88%);
+  --color-ring: hsl(224 35% 18%);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
-  background: hsl(0 0% 100%);
-  color: hsl(224 71.4% 4.1%);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+code,
+pre {
+  font-family:
+    ui-monospace,
+    "SF Mono",
+    "JetBrains Mono",
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+@keyframes fluid-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.fluid-dot {
+  animation: fluid-pulse 1.2s ease-in-out infinite;
+}
+.fluid-dot.delay-1 {
+  animation-delay: 0.15s;
+}
+.fluid-dot.delay-2 {
+  animation-delay: 0.3s;
+}
+
+@keyframes fluid-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fluid-enter {
+  animation: fluid-fade-in 240ms ease-out both;
 }
