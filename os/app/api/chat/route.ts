@@ -1,7 +1,11 @@
 import OpenAI from "openai";
 import type { Tool } from "openai/resources/responses/responses";
 
-import type { ToolCallTrace } from "@/lib/workspace";
+import type { ToolCallTrace } from "@/lib/workspace/types";
+import {
+  canvasToolDefs,
+  canvasToolNames,
+} from "@/lib/workspace/canvas-tool-defs";
 import {
   catalogToSystemFragment,
   fetchStrawCatalog,
@@ -34,6 +38,14 @@ function optionalMcpTools(): Tool[] {
   return tools;
 }
 
+function allTools(): Tool[] {
+  const tools = optionalMcpTools();
+  for (const def of canvasToolDefs) {
+    tools.push(def as unknown as Tool);
+  }
+  return tools;
+}
+
 function tryParseJson(value: string | null | undefined): unknown {
   if (value === null || value === undefined || value === "") return null;
   try {
@@ -48,7 +60,10 @@ const BASE_INSTRUCTIONS = [
   "Every Fluid OS capability is already exposed as a direct Soda Straw MCP tool that you can call right now. Each tool name starts with `fluid-os-<capability>_` — for example, `fluid-os-tables_tables_create` or `fluid-os-canvas_canvas_render`.",
   "Never call Soda Straw discovery tools such as `straws_list`, `straws_tools`, `straws_catalog`, or `whoami`. The catalog is provided below and the tools are pre-attached.",
   "Each request includes the latest Fluid OS canvas snapshot as context. Treat that snapshot as the current workspace state.",
-  "When the user asks for a change, prefer updating or wiring the existing canvas over starting from scratch.",
+  "You also have live canvas mutation tools that operate directly on the workspace the user is looking at: `canvas_get_state`, `canvas_add_widget`, `canvas_update_widget_input`, `canvas_remove_widget`, `canvas_set_layout`, `canvas_add_bridge`, `canvas_remove_bridge`, `canvas_preview_bridge`, `canvas_list_transforms`.",
+  "When the user wants to modify the existing canvas (add a panel, wire a map to a detail view, change an input), prefer the `canvas_*` mutation tools over rebuilding from `canvas.render`.",
+  "Use `canvas.render` (the Soda Straw tool) only when starting a fresh workspace from a new broad intent. For incremental changes to an existing canvas, use `canvas_add_widget`, `canvas_update_widget_input`, `canvas_add_bridge`, etc.",
+  "Before adding a bridge, you may call `canvas_preview_bridge` to verify port compatibility and inspect what the target would receive.",
   "When the user states a new broad intent, build a workspace deterministically:",
   "  1. Capture the intent in `notes`.",
   "  2. Create the structured data the workspace needs (tables, contacts, calendar entries, tasks).",
@@ -76,12 +91,49 @@ function buildInput(message: string, canvas: unknown): string {
   ].join("\n");
 }
 
+export type CanvasToolCall = {
+  call_id: string;
+  name: string;
+  arguments: unknown;
+};
+
+export type CanvasToolOutput = {
+  call_id: string;
+  name: string;
+  output: unknown;
+};
+
 export type StreamEvent =
   | { type: "text.delta"; delta: string }
   | { type: "tool.start"; id: string; name: string; server_label: string }
   | { type: "tool.done"; trace: ToolCallTrace }
+  | { type: "canvas_tool.call"; call: CanvasToolCall }
+  | { type: "response.id"; id: string }
+  | { type: "awaiting_canvas_tools"; response_id: string }
   | { type: "done" }
   | { type: "error"; message: string };
+
+type ChatRequestBody =
+  | {
+      message: string;
+      canvas?: unknown;
+    }
+  | {
+      previous_response_id: string;
+      canvas_tool_outputs: CanvasToolOutput[];
+    };
+
+function isContinuation(body: unknown): body is {
+  previous_response_id: string;
+  canvas_tool_outputs: CanvasToolOutput[];
+} {
+  return Boolean(
+    body &&
+      typeof body === "object" &&
+      "previous_response_id" in body &&
+      "canvas_tool_outputs" in body,
+  );
+}
 
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
@@ -91,16 +143,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { message, canvas } = (await request.json()) as {
-    message?: unknown;
-    canvas?: unknown;
-  };
+  const body = (await request.json()) as ChatRequestBody;
+  const continuation = isContinuation(body);
 
-  if (typeof message !== "string" || message.trim().length === 0) {
-    return Response.json({ error: "Message is required." }, { status: 400 });
+  if (!continuation) {
+    const { message } = body as { message?: unknown };
+    if (typeof message !== "string" || message.trim().length === 0) {
+      return Response.json({ error: "Message is required." }, { status: 400 });
+    }
   }
 
-  const tools = optionalMcpTools();
+  const tools = allTools();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -109,56 +162,111 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       };
 
-      const pendingCalls = new Map<
+      const pendingMcpCalls = new Map<
         string,
         { name: string; server_label: string }
       >();
+      let emittedCanvasCallCount = 0;
 
       try {
-        const instructions = await buildInstructions();
-        const openaiStream = await openai.responses.create({
-          model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-          instructions,
-          input: buildInput(message.trim(), canvas),
-          tools: tools.length > 0 ? tools : undefined,
-          stream: true,
-        });
+        let openaiStream;
+
+        if (continuation) {
+          const { previous_response_id, canvas_tool_outputs } = body as {
+            previous_response_id: string;
+            canvas_tool_outputs: CanvasToolOutput[];
+          };
+          const input = canvas_tool_outputs.map((out) => ({
+            type: "function_call_output" as const,
+            call_id: out.call_id,
+            output:
+              typeof out.output === "string"
+                ? out.output
+                : JSON.stringify(out.output ?? null),
+          }));
+          openaiStream = await openai.responses.create({
+            model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+            previous_response_id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            input: input as any,
+            tools: tools.length > 0 ? tools : undefined,
+            stream: true,
+          });
+        } else {
+          const { message, canvas } = body as {
+            message: string;
+            canvas?: unknown;
+          };
+          const instructions = await buildInstructions();
+          openaiStream = await openai.responses.create({
+            model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+            instructions,
+            input: buildInput(message.trim(), canvas),
+            tools: tools.length > 0 ? tools : undefined,
+            stream: true,
+          });
+        }
+
+        let responseId: string | null = null;
 
         for await (const event of openaiStream) {
           switch (event.type) {
+            case "response.created": {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const created = (event as any).response;
+              if (created?.id) {
+                responseId = created.id;
+                send({ type: "response.id", id: created.id });
+              }
+              break;
+            }
             case "response.output_text.delta": {
               send({ type: "text.delta", delta: event.delta });
               break;
             }
             case "response.output_item.added": {
-              if (event.item.type === "mcp_call") {
-                pendingCalls.set(event.item.id, {
-                  name: event.item.name,
-                  server_label: event.item.server_label,
+              const item = event.item;
+              if (item.type === "mcp_call") {
+                pendingMcpCalls.set(item.id, {
+                  name: item.name,
+                  server_label: item.server_label,
                 });
                 send({
                   type: "tool.start",
-                  id: event.item.id,
-                  name: event.item.name,
-                  server_label: event.item.server_label,
+                  id: item.id,
+                  name: item.name,
+                  server_label: item.server_label,
                 });
               }
               break;
             }
             case "response.output_item.done": {
-              if (event.item.type === "mcp_call") {
-                pendingCalls.delete(event.item.id);
+              const item = event.item;
+              if (item.type === "mcp_call") {
+                pendingMcpCalls.delete(item.id);
                 send({
                   type: "tool.done",
                   trace: {
-                    id: event.item.id,
-                    server_label: event.item.server_label,
-                    name: event.item.name,
-                    arguments: tryParseJson(event.item.arguments),
-                    output: tryParseJson(event.item.output ?? null),
-                    error: event.item.error ?? null,
+                    id: item.id,
+                    server_label: item.server_label,
+                    name: item.name,
+                    arguments: tryParseJson(item.arguments),
+                    output: tryParseJson(item.output ?? null),
+                    error: item.error ?? null,
                   },
                 });
+              } else if (item.type === "function_call") {
+                if (canvasToolNames.has(item.name)) {
+                  send({
+                    type: "canvas_tool.call",
+                    call: {
+                      call_id: item.call_id,
+                      name: item.name,
+                      arguments: tryParseJson(item.arguments),
+                    },
+                  });
+                  emittedCanvasCallCount += 1;
+                }
               }
               break;
             }
@@ -167,6 +275,9 @@ export async function POST(request: Request) {
           }
         }
 
+        if (responseId && emittedCanvasCallCount > 0) {
+          send({ type: "awaiting_canvas_tools", response_id: responseId });
+        }
         send({ type: "done" });
       } catch (caughtError) {
         send({

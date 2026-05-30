@@ -26,15 +26,25 @@ import {
   applyToolTraceToCanvasStore,
   buildWorkspace,
   canvasStore,
+  executeCanvasTool,
   getCanvasStateForAgent,
   type PendingCall,
   type ToolCallTrace,
 } from "@/lib/workspace";
 
+type CanvasToolCall = {
+  call_id: string;
+  name: string;
+  arguments: unknown;
+};
+
 type StreamEvent =
   | { type: "text.delta"; delta: string }
   | { type: "tool.start"; id: string; name: string; server_label: string }
   | { type: "tool.done"; trace: ToolCallTrace }
+  | { type: "canvas_tool.call"; call: CanvasToolCall }
+  | { type: "response.id"; id: string }
+  | { type: "awaiting_canvas_tools"; response_id: string }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -83,6 +93,108 @@ export default function Home() {
     setIsStreaming(false);
   }, []);
 
+  const runStream = useCallback(
+    async (
+      body: Record<string, unknown>,
+      controller: AbortController,
+    ): Promise<{
+      awaitingResponseId: string | null;
+      canvasCalls: CanvasToolCall[];
+    }> => {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        const fallback = await response.json().catch(() => ({}));
+        throw new Error(
+          (fallback as { error?: string }).error ?? "The model did not respond.",
+        );
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let awaitingResponseId: string | null = null;
+      const canvasCalls: CanvasToolCall[] = [];
+
+      const handle = (event: StreamEvent) => {
+        switch (event.type) {
+          case "text.delta":
+            setReply((prev) => prev + event.delta);
+            break;
+          case "tool.start":
+            setPending((prev) => [
+              ...prev,
+              {
+                id: event.id,
+                name: event.name,
+                server_label: event.server_label,
+              },
+            ]);
+            break;
+          case "tool.done":
+            setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
+            setTraces((prev) => [...prev, event.trace]);
+            applyToolTraceToCanvasStore(event.trace);
+            break;
+          case "canvas_tool.call":
+            canvasCalls.push(event.call);
+            setTraces((prev) => [
+              ...prev,
+              {
+                id: event.call.call_id,
+                server_label: "canvas",
+                name: event.call.name,
+                arguments: event.call.arguments,
+                output: null,
+                error: null,
+              },
+            ]);
+            break;
+          case "awaiting_canvas_tools":
+            awaitingResponseId = event.response_id;
+            break;
+          case "error":
+            setError(event.message);
+            break;
+          case "response.id":
+          case "done":
+            break;
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+          newlineIndex = buffer.indexOf("\n");
+          if (!line) continue;
+
+          let event: StreamEvent;
+          try {
+            event = JSON.parse(line) as StreamEvent;
+          } catch {
+            continue;
+          }
+
+          handle(event);
+        }
+      }
+
+      return { awaitingResponseId, canvasCalls };
+    },
+    [],
+  );
+
   const submit = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -101,48 +213,45 @@ export default function Home() {
       abortRef.current = controller;
 
       try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        let next: {
+          awaitingResponseId: string | null;
+          canvasCalls: CanvasToolCall[];
+        } = await runStream(
+          {
             message: trimmed,
             canvas: getCanvasStateForAgent(),
-          }),
-          signal: controller.signal,
-        });
+          },
+          controller,
+        );
 
-        if (!response.ok || !response.body) {
-          const fallback = await response.json().catch(() => ({}));
-          throw new Error(
-            (fallback as { error?: string }).error ?? "The model did not respond.",
+        let safety = 0;
+        while (
+          next.awaitingResponseId &&
+          next.canvasCalls.length > 0 &&
+          safety < 8
+        ) {
+          safety += 1;
+          const outputs = next.canvasCalls.map((call) => {
+            const args =
+              call.arguments && typeof call.arguments === "object"
+                ? (call.arguments as Record<string, unknown>)
+                : {};
+            const output = executeCanvasTool(call.name, args);
+            setTraces((prev) =>
+              prev.map((trace) =>
+                trace.id === call.call_id ? { ...trace, output } : trace,
+              ),
+            );
+            return { call_id: call.call_id, name: call.name, output };
+          });
+
+          next = await runStream(
+            {
+              previous_response_id: next.awaitingResponseId,
+              canvas_tool_outputs: outputs,
+            },
+            controller,
           );
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-
-          let newlineIndex = buffer.indexOf("\n");
-          while (newlineIndex !== -1) {
-            const line = buffer.slice(0, newlineIndex).trim();
-            buffer = buffer.slice(newlineIndex + 1);
-            newlineIndex = buffer.indexOf("\n");
-            if (!line) continue;
-
-            let event: StreamEvent;
-            try {
-              event = JSON.parse(line) as StreamEvent;
-            } catch {
-              continue;
-            }
-
-            applyEvent(event);
-          }
         }
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
@@ -156,36 +265,8 @@ export default function Home() {
         abortRef.current = null;
       }
     },
-    [],
+    [runStream],
   );
-
-  function applyEvent(event: StreamEvent) {
-    switch (event.type) {
-      case "text.delta":
-        setReply((prev) => prev + event.delta);
-        break;
-      case "tool.start":
-        setPending((prev) => [
-          ...prev,
-          {
-            id: event.id,
-            name: event.name,
-            server_label: event.server_label,
-          },
-        ]);
-        break;
-      case "tool.done":
-        setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
-        setTraces((prev) => [...prev, event.trace]);
-        applyToolTraceToCanvasStore(event.trace);
-        break;
-      case "error":
-        setError(event.message);
-        break;
-      case "done":
-        break;
-    }
-  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
