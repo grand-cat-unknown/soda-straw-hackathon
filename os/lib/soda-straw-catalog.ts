@@ -4,9 +4,9 @@ export type StrawCatalogEntry = {
 };
 
 type RawStraw = {
-  straw_name?: string;
+  name?: string;
   description?: string;
-  has_access?: boolean;
+  viewer_access?: string | null;
   is_system?: boolean;
   connection?: string;
 };
@@ -45,21 +45,25 @@ export async function fetchStrawCatalog(): Promise<StrawCatalogEntry[]> {
     });
     if (!response.ok) return cached?.catalog ?? [];
 
-    const data = (await response.json()) as { straws?: RawStraw[] };
-    const straws = Array.isArray(data.straws) ? data.straws : [];
+    const data = (await response.json()) as RawStraw[] | { straws?: RawStraw[] };
+    const straws: RawStraw[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.straws)
+        ? data.straws!
+        : [];
 
     const catalog: StrawCatalogEntry[] = straws
       .filter(
         (s) =>
-          typeof s.straw_name === "string" &&
-          s.straw_name.startsWith(STRAW_PREFIX) &&
-          s.has_access !== false &&
+          typeof s.name === "string" &&
+          s.name.startsWith(STRAW_PREFIX) &&
+          s.viewer_access !== "none" &&
+          s.viewer_access !== null &&
           !s.is_system &&
-          s.connection !== "error" &&
-          s.connection !== "paused",
+          s.connection === "live",
       )
       .map((s) => ({
-        name: (s.straw_name ?? "").slice(STRAW_PREFIX.length),
+        name: (s.name ?? "").slice(STRAW_PREFIX.length),
         description: s.description ?? "",
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
