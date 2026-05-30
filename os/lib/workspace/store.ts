@@ -13,12 +13,14 @@ import type {
   EdgeId,
   NodeId,
   Port,
+  ToolAction,
+  ToolBinding,
   TransformRef,
   WidgetInput,
   WidgetNode,
 } from "@/lib/workspace/types";
 
-const DEFAULT_LAYOUT: CanvasLayout = { x: 0, y: 0, w: 12, h: 4 };
+const DEFAULT_LAYOUT: CanvasLayout = { size: "medium", col: 0, row: 0 };
 const MAX_PROPAGATION_DEPTH = 32;
 
 type Listener = () => void;
@@ -28,6 +30,8 @@ type AddWidgetInput = {
   type: string;
   title?: string;
   input?: WidgetInput;
+  bindings?: Record<string, ToolBinding>;
+  actions?: Record<string, ToolAction>;
   layout?: CanvasLayout;
   source?: CanvasMutationSource;
 };
@@ -172,6 +176,8 @@ export const canvasStore = {
     type,
     title,
     input = {},
+    bindings,
+    actions,
     layout,
     source = "agent",
   }: AddWidgetInput): NodeId {
@@ -184,6 +190,8 @@ export const canvasStore = {
         type,
         title: title ?? defaultTitle(type),
         input,
+        ...(bindings ? { bindings } : {}),
+        ...(actions ? { actions } : {}),
       },
       layout,
     );
@@ -202,6 +210,25 @@ export const canvasStore = {
     next.nodes[nodeId] = {
       ...existing,
       input: { ...existing.input, ...input },
+    };
+    touch(next, source);
+    publish(next);
+  },
+  updateWidgetBackend(
+    nodeId: NodeId,
+    backend: {
+      bindings?: Record<string, ToolBinding>;
+      actions?: Record<string, ToolAction>;
+    },
+    source: CanvasMutationSource = "agent",
+  ) {
+    const existing = state.nodes[nodeId];
+    if (!existing) return;
+    const next = cloneState();
+    next.nodes[nodeId] = {
+      ...existing,
+      ...(backend.bindings ? { bindings: backend.bindings } : {}),
+      ...(backend.actions ? { actions: backend.actions } : {}),
     };
     touch(next, source);
     publish(next);

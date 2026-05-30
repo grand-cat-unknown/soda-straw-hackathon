@@ -7,3 +7,4 @@ export * from "@/lib/workspace/schemas";
 export * from "@/lib/workspace/store";
 export * from "@/lib/workspace/transforms";
 export * from "@/lib/workspace/types";
+export * from "@/lib/workspace/widget-runtime";

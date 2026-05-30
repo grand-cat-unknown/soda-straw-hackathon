@@ -72,6 +72,33 @@ export type WidgetRenderContract = {
   outputActions?: Record<Port, string>;
 };
 
+export type ToolBindingRefresh = "onMount" | "manual" | "afterAction";
+
+export type ToolBinding = {
+  capabilityId: string;
+  toolName?: string;
+  params?: Record<string, unknown>;
+  resultPath?: string;
+  transform?: string;
+  refresh?: ToolBindingRefresh;
+};
+
+export type ToolAction = {
+  capabilityId: string;
+  toolName?: string;
+  params?: Record<string, unknown>;
+  inputMap?: Record<string, string>;
+  refreshBindings?: string[];
+};
+
+export type WidgetToolCandidate = {
+  capabilityId: string;
+  inputPort: Port;
+  resultPath?: string;
+  purpose: string;
+  transform?: string;
+};
+
 export type WidgetContract = {
   type: WidgetType;
   title: string;
@@ -79,6 +106,8 @@ export type WidgetContract = {
   inputs: Record<string, WidgetPortContract>;
   outputs: Record<string, WidgetPortContract>;
   render: WidgetRenderContract;
+  toolCandidates?: WidgetToolCandidate[];
+  toolActions?: Record<string, ToolAction>;
 };
 
 export type WidgetDefinition = {
@@ -95,12 +124,19 @@ export type WidgetNode = {
   type: WidgetType;
   title: string;
   input: WidgetInput;
+  bindings?: Record<string, ToolBinding>;
+  actions?: Record<string, ToolAction>;
 };
 
 export type WidgetComponentProps<TInput extends WidgetInput = WidgetInput> = {
   node: WidgetNode;
   input: TInput;
   emitOutput: (port: Port, value: unknown) => void;
+  runAction: (
+    actionName: string,
+    payload?: Record<string, unknown>,
+  ) => Promise<unknown>;
+  refreshBindings: (bindingNames?: string[]) => Promise<void>;
 };
 
 export type TransformRef = {
@@ -117,12 +153,34 @@ export type Bridge = {
   createdBy: "agent" | "user" | "tool";
 };
 
+// Tile sizes on the 6-column canvas grid. Each tile is { cols x rows } in cells.
+// Cell width = 1/6 of canvas; cell height = ~200px.
+export type TileSize =
+  | "small" // 1 x 1
+  | "wide" // 2 x 1
+  | "tall" // 1 x 2
+  | "medium" // 2 x 2
+  | "large" // 3 x 2
+  | "xlarge" // 4 x 2
+  | "full"; // 6 x 2
+
 export type CanvasLayout = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  size: TileSize;
+  col: number; // 0-5, top-left cell column
+  row: number; // >= 0, top-left cell row
 };
+
+export const TILE_DIMENSIONS: Record<TileSize, { cols: number; rows: number }> = {
+  small: { cols: 1, rows: 1 },
+  wide: { cols: 2, rows: 1 },
+  tall: { cols: 1, rows: 2 },
+  medium: { cols: 2, rows: 2 },
+  large: { cols: 3, rows: 2 },
+  xlarge: { cols: 4, rows: 2 },
+  full: { cols: 6, rows: 2 },
+};
+
+export const CANVAS_COLS = 6;
 
 export type CanvasMutationSource = "agent" | "user" | "tool";
 

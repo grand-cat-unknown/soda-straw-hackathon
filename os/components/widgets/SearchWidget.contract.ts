@@ -39,8 +39,7 @@ export const SearchWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "search",
-    defaultLayout: { x: 0, y: 0, w: 66, h: 5 },
-    minLayout: { w: 40, h: 3 },
+    defaultLayout: { size: "xlarge", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
@@ -48,4 +47,12 @@ export const SearchWidgetContract: WidgetContract = {
       url: "Use URL buttons",
     },
   },
+  toolCandidates: [
+    {
+      capabilityId: "search.web",
+      inputPort: "results",
+      resultPath: "$.results",
+      purpose: "Render web search results from the backend.",
+    },
+  ],
 };

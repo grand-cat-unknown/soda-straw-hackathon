@@ -28,12 +28,44 @@ export const MapWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "map",
-    defaultLayout: { x: 0, y: 0, w: 66, h: 6 },
-    minLayout: { w: 40, h: 4 },
+    defaultLayout: { size: "xlarge", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedMarker: "Marker click or marker selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "maps.search_places",
+      inputPort: "markers",
+      resultPath: "$.places",
+      transform: "placesToMarkers",
+      purpose: "Render place search results on a map.",
+    },
+    {
+      capabilityId: "maps.geocode",
+      inputPort: "markers",
+      resultPath: "$.places",
+      transform: "placesToMarkers",
+      purpose: "Render geocoded places on a map.",
+    },
+    {
+      capabilityId: "maps.directions",
+      inputPort: "route",
+      resultPath: "$",
+      transform: "directionsToRoute",
+      purpose: "Render a backend route on the map.",
+    },
+  ],
+  toolActions: {
+    searchPlaces: {
+      capabilityId: "maps.search_places",
+      refreshBindings: ["markers"],
+    },
+    directions: {
+      capabilityId: "maps.directions",
+      refreshBindings: ["route"],
     },
   },
 };

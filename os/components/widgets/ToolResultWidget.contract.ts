@@ -25,8 +25,7 @@ export const ToolResultWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "tool-result",
-    defaultLayout: { x: 0, y: 0, w: 100, h: 3 },
-    minLayout: { w: 33, h: 2 },
+    defaultLayout: { size: "full", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {

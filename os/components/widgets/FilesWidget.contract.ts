@@ -34,12 +34,35 @@ export const FilesWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "files",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 4 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedFile: "File selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "files.list",
+      inputPort: "files",
+      resultPath: "$.files",
+      purpose: "Render stored files from the backend.",
+    },
+    {
+      capabilityId: "files.get",
+      inputPort: "file",
+      resultPath: "$",
+      purpose: "Render one file record from the backend.",
+    },
+  ],
+  toolActions: {
+    storeFile: {
+      capabilityId: "files.store",
+      refreshBindings: ["files"],
+    },
+    linkFile: {
+      capabilityId: "files.link",
+      refreshBindings: ["files", "file"],
     },
   },
 };

@@ -48,13 +48,42 @@ export const MessagesWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "messages",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       draft: "Use draft button",
       message: "Use message button",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "messages.draft",
+      inputPort: "draft",
+      resultPath: "$",
+      purpose: "Render a drafted message from the backend.",
+    },
+    {
+      capabilityId: "messages.send",
+      inputPort: "sent",
+      resultPath: "$",
+      purpose: "Render a sent message receipt from the backend.",
+    },
+    {
+      capabilityId: "messages.track_replies",
+      inputPort: "tracking",
+      resultPath: "$",
+      purpose: "Render reply tracking state from the backend.",
+    },
+  ],
+  toolActions: {
+    sendMessage: {
+      capabilityId: "messages.send",
+      refreshBindings: ["sent", "tracking"],
+    },
+    trackReplies: {
+      capabilityId: "messages.track_replies",
+      refreshBindings: ["tracking"],
     },
   },
 };

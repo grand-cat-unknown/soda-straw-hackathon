@@ -16,86 +16,86 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   canvasStore,
   getWidgetContract,
+  refreshWidgetBindings,
+  runWidgetAction,
   useCanvasState,
   widgetRegistry,
 } from "@/lib/workspace";
 import type {
+  CanvasLayout,
+  TileSize,
   WidgetInput,
   WidgetNode,
 } from "@/lib/workspace";
+import { CANVAS_COLS, TILE_DIMENSIONS } from "@/lib/workspace";
 import {
   fallbackWidgetRenderer,
   widgetRenderers,
 } from "@/components/widgets/widget-renderers";
 
-// Free-form canvas. x and w are percent of canvas width (0-100). y and h are row units.
-const ROW_HEIGHT_PX = 72;
-const GAP_PCT = 1;
-const GAP_ROWS = 0.25;
+// Tile grid: 6 columns, ~200px row height. Agent picks a TileSize + (col,row).
+// If two tiles collide, the later one is bumped via first-fit packing.
+const CELL_HEIGHT_PX = 200;
 
-type Placement = { x: number; y: number; w: number; h: number };
+type Cell = { col: number; row: number; cols: number; rows: number };
 
-function rectsOverlap(a: Placement, b: Placement): boolean {
+function tileDims(size: TileSize): { cols: number; rows: number } {
+  return TILE_DIMENSIONS[size];
+}
+
+function cellsOverlap(a: Cell, b: Cell): boolean {
   return (
-    a.x < b.x + b.w + GAP_PCT &&
-    b.x < a.x + a.w + GAP_PCT &&
-    a.y < b.y + b.h + GAP_ROWS &&
-    b.y < a.y + a.h + GAP_ROWS
+    a.col < b.col + b.cols &&
+    b.col < a.col + a.cols &&
+    a.row < b.row + b.rows &&
+    b.row < a.row + a.rows
   );
 }
 
-function clamp(p: Placement): Placement {
-  const w = Math.min(Math.max(2, p.w), 100);
-  const h = Math.max(1, p.h);
-  const x = Math.min(Math.max(0, p.x), 100 - w);
-  const y = Math.max(0, p.y);
-  return { x, y, w, h };
+function firstFit(want: Cell, placed: Cell[]): Cell {
+  // Try the requested slot first. If it conflicts, scan row-by-row, left-to-right
+  // for the first slot that fits a tile of the same size.
+  const isFree = (candidate: Cell) =>
+    candidate.col + candidate.cols <= CANVAS_COLS &&
+    !placed.some((p) => cellsOverlap(candidate, p));
+
+  if (want.col + want.cols <= CANVAS_COLS && isFree(want)) return want;
+
+  for (let row = 0; row < 1000; row += 1) {
+    for (let col = 0; col <= CANVAS_COLS - want.cols; col += 1) {
+      const candidate = { ...want, col, row };
+      if (isFree(candidate)) return candidate;
+    }
+  }
+  return { ...want, col: 0, row: 0 };
 }
 
 function resolvePlacements(
   nodes: WidgetNode[],
-  layoutMap: Record<string, Placement>,
-): Record<string, Placement> {
-  const initial: Array<{ node: WidgetNode; placement: Placement }> = [];
-  let flowY = 0;
+  layoutMap: Record<string, CanvasLayout>,
+): Record<string, Cell> {
+  const placed: Cell[] = [];
+  const result: Record<string, Cell> = {};
 
+  // Honor the agent's intended order (insertion order in nodes).
   for (const node of nodes) {
-    const explicit = layoutMap[node.id];
-    if (explicit) {
-      initial.push({ node, placement: clamp(explicit) });
-    } else {
-      const defaults = getWidgetContract(node.type)?.render.defaultLayout ?? {
-        x: 0,
-        y: 0,
-        w: 50,
-        h: 4,
+    const layout =
+      layoutMap[node.id] ??
+      getWidgetContract(node.type)?.render.defaultLayout ?? {
+        size: "medium" as TileSize,
+        col: 0,
+        row: 0,
       };
-      initial.push({
-        node,
-        placement: clamp({ x: 0, y: flowY, w: defaults.w, h: defaults.h }),
-      });
-      flowY += defaults.h + GAP_ROWS;
-    }
-  }
-
-  initial.sort(
-    (a, b) => a.placement.y - b.placement.y || a.placement.x - b.placement.x,
-  );
-
-  const placed: Placement[] = [];
-  const result: Record<string, Placement> = {};
-
-  for (const { node, placement } of initial) {
-    const p = { ...placement };
-    let safety = 0;
-    while (safety < 200) {
-      safety += 1;
-      const conflict = placed.find((other) => rectsOverlap(p, other));
-      if (!conflict) break;
-      p.y = conflict.y + conflict.h + GAP_ROWS;
-    }
-    placed.push(p);
-    result[node.id] = p;
+    const { cols, rows } = tileDims(layout.size);
+    const want: Cell = {
+      col: Math.min(Math.max(0, layout.col), CANVAS_COLS - cols),
+      row: Math.max(0, layout.row),
+      cols,
+      rows,
+    };
+    const fit = firstFit(want, placed);
+    placed.push(fit);
+    result[node.id] = fit;
   }
 
   return result;
@@ -109,26 +109,27 @@ export function WorkspaceRenderer() {
 
   const placements = resolvePlacements(nodes, canvas.layout);
   const maxRow = Object.values(placements).reduce(
-    (acc, p) => Math.max(acc, p.y + p.h),
+    (acc, p) => Math.max(acc, p.row + p.rows),
     1,
   );
 
   return (
     <div
-      className="relative w-full"
-      style={{ height: `${maxRow * ROW_HEIGHT_PX}px` }}
+      className="grid gap-4 w-full"
+      style={{
+        gridTemplateColumns: `repeat(${CANVAS_COLS}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${maxRow}, ${CELL_HEIGHT_PX}px)`,
+      }}
     >
       {nodes.map((node) => {
         const p = placements[node.id];
         return (
           <div
             key={node.id}
-            className="absolute transition-all duration-300 ease-out"
+            className="min-w-0 transition-all duration-300 ease-out"
             style={{
-              left: `${p.x}%`,
-              top: `${p.y * ROW_HEIGHT_PX}px`,
-              width: `calc(${p.w}% - 12px)`,
-              height: `${p.h * ROW_HEIGHT_PX - 12}px`,
+              gridColumn: `${p.col + 1} / span ${p.cols}`,
+              gridRow: `${p.row + 1} / span ${p.rows}`,
             }}
           >
             <WidgetFrame node={node}>
@@ -241,6 +242,20 @@ function WidgetFrame({
                 out:{port}
               </Badge>
             ))}
+            {node.bindings
+              ? Object.keys(node.bindings).map((name) => (
+                  <Badge key={`binding:${name}`} variant="secondary">
+                    bind:{name}
+                  </Badge>
+                ))
+              : null}
+            {node.actions
+              ? Object.keys(node.actions).map((name) => (
+                  <Badge key={`action:${name}`} variant="outline">
+                    action:{name}
+                  </Badge>
+                ))
+              : null}
           </div>
         ) : null}
       </CardHeader>
@@ -303,5 +318,30 @@ function WidgetBody({
   emitOutput: (port: string, value: unknown) => void;
 }) {
   const Renderer = widgetRenderers[node.type] ?? fallbackWidgetRenderer;
-  return <Renderer node={node} input={input} emitOutput={emitOutput} />;
+  const onMountBindings = JSON.stringify(
+    Object.entries(node.bindings ?? {})
+      .filter(([, binding]) => binding.refresh === "onMount")
+      .map(([name]) => name),
+  );
+
+  useEffect(() => {
+    const bindingNames = JSON.parse(onMountBindings) as string[];
+    if (bindingNames.length > 0) {
+      void refreshWidgetBindings(node.id, bindingNames);
+    }
+  }, [node.id, onMountBindings]);
+
+  return (
+    <Renderer
+      node={node}
+      input={input}
+      emitOutput={emitOutput}
+      runAction={(actionName, payload) =>
+        runWidgetAction(node, actionName, payload)
+      }
+      refreshBindings={(bindingNames) =>
+        refreshWidgetBindings(node.id, bindingNames)
+      }
+    />
+  );
 }

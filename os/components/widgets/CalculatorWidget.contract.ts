@@ -52,14 +52,37 @@ export const CalculatorWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "calculator",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 4 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "small", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       result: "Emit result button",
       value: "Use value button",
       selectedOption: "Option selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "calculator.compute",
+      inputPort: "result",
+      resultPath: "$",
+      purpose: "Render an evaluated expression.",
+    },
+    {
+      capabilityId: "calculator.score_options",
+      inputPort: "ranked",
+      resultPath: "$.ranked",
+      purpose: "Render ranked scored options.",
+    },
+  ],
+  toolActions: {
+    compute: {
+      capabilityId: "calculator.compute",
+      refreshBindings: ["result"],
+    },
+    scoreOptions: {
+      capabilityId: "calculator.score_options",
+      refreshBindings: ["ranked"],
     },
   },
 };

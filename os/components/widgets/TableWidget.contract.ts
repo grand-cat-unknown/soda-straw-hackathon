@@ -19,12 +19,31 @@ export const TableWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "table",
-    defaultLayout: { x: 0, y: 0, w: 100, h: 4 },
-    minLayout: { w: 40, h: 3 },
+    defaultLayout: { size: "xlarge", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedRows: "Row selection checkboxes",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "tables.get",
+      inputPort: "table",
+      resultPath: "$",
+      purpose: "Render a full structured table from the backend.",
+    },
+    {
+      capabilityId: "tables.create",
+      inputPort: "table",
+      resultPath: "$",
+      purpose: "Render the table created by the backend.",
+    },
+  ],
+  toolActions: {
+    addRow: {
+      capabilityId: "tables.add_row",
+      refreshBindings: ["table"],
     },
   },
 };

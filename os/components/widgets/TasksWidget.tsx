@@ -14,7 +14,7 @@ import {
   WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
-export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
+export function TasksWidget({ node, input, emitOutput, runAction }: WidgetComponentProps) {
   const result = isRecord(input.result) ? input.result : input;
   const tasks = asRecords(result.tasks).length
     ? asRecords(result.tasks)
@@ -62,6 +62,8 @@ export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
         {tasks.map((task, index) => {
           const status = getString(task, "status") ?? "open";
           const title = getString(task, "title") ?? `Task ${index + 1}`;
+          const taskId = getString(task, "id");
+          const canUpdate = Boolean(node.actions?.updateTask && taskId);
           return (
             <WidgetItem
               key={getString(task, "id") ?? `${title}:${index}`}
@@ -86,13 +88,29 @@ export function TasksWidget({ input, emitOutput }: WidgetComponentProps) {
                     ]}
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => emitOutput("selectedTask", task)}
-                >
-                  Select
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  {canUpdate ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        void runAction("updateTask", {
+                          task_id: taskId,
+                          status: status === "done" ? "open" : "done",
+                        })
+                      }
+                    >
+                      {status === "done" ? "Reopen" : "Done"}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => emitOutput("selectedTask", task)}
+                  >
+                    Select
+                  </Button>
+                </div>
               </div>
             </WidgetItem>
           );

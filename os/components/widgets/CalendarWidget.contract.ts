@@ -48,13 +48,42 @@ export const CalendarWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "calendar",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedEvent: "Event selection buttons",
       selectedReminder: "Reminder selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "calendar.list",
+      inputPort: "events",
+      resultPath: "$.events",
+      purpose: "Render upcoming events from the backend.",
+    },
+    {
+      capabilityId: "calendar.create",
+      inputPort: "event",
+      resultPath: "$",
+      purpose: "Render an event created by the backend.",
+    },
+    {
+      capabilityId: "calendar.list_reminders",
+      inputPort: "reminders",
+      resultPath: "$.reminders",
+      purpose: "Render reminders from the backend.",
+    },
+  ],
+  toolActions: {
+    createEvent: {
+      capabilityId: "calendar.create",
+      refreshBindings: ["events"],
+    },
+    createReminder: {
+      capabilityId: "calendar.create_reminder",
+      refreshBindings: ["reminders"],
     },
   },
 };

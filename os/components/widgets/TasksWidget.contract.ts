@@ -39,13 +39,42 @@ export const TasksWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "tasks",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedTask: "Task selection buttons",
       status: "Status filter buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "tasks.list",
+      inputPort: "tasks",
+      resultPath: "$.tasks",
+      purpose: "Render task records from the backend.",
+    },
+    {
+      capabilityId: "tasks.create",
+      inputPort: "task",
+      resultPath: "$",
+      purpose: "Render a task created by the backend.",
+    },
+    {
+      capabilityId: "tasks.get",
+      inputPort: "task",
+      resultPath: "$",
+      purpose: "Render one task from the backend.",
+    },
+  ],
+  toolActions: {
+    updateTask: {
+      capabilityId: "tasks.update",
+      refreshBindings: ["tasks"],
+    },
+    createTask: {
+      capabilityId: "tasks.create",
+      refreshBindings: ["tasks"],
     },
   },
 };

@@ -23,11 +23,31 @@ class ActionSpec(BaseModel):
     params: dict[str, Any] | None = None
 
 
+class ToolBinding(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    capability_id: str = Field(..., alias="capabilityId")
+    params: dict[str, Any] = Field(default_factory=dict)
+    result_path: str = Field("$", alias="resultPath")
+    transform: str | None = None
+    refresh: str = "manual"
+
+
+class ToolAction(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    capability_id: str = Field(..., alias="capabilityId")
+    params: dict[str, Any] = Field(default_factory=dict)
+    refresh_bindings: list[str] = Field(default_factory=list, alias="refreshBindings")
+
+
 class WidgetSpec(BaseModel):
     id: str
     type: str
     title: str
     input: dict[str, Any] = Field(default_factory=dict)
+    bindings: dict[str, ToolBinding] = Field(default_factory=dict)
+    actions: dict[str, ToolAction] = Field(default_factory=dict)
     outputs: list[str] = Field(default_factory=list)
 
 

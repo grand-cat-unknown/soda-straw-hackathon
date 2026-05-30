@@ -35,7 +35,10 @@ import {
   type CanvasPlanBridge,
   type CanvasPlanWidget,
   type PendingCall,
+  type ToolAction,
+  type ToolBinding,
   type ToolCallTrace,
+  type WidgetInput,
 } from "@/lib/workspace";
 
 type CanvasToolCall = {
@@ -161,6 +164,75 @@ function plannedBridgeExists(bridge: CanvasPlanBridge): boolean {
       edge.from.port === bridge.from.port &&
       edge.to.nodeId === bridge.to.nodeId &&
       edge.to.port === bridge.to.port,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function materializeCanvasRender(output: unknown): boolean {
+  const canvas = isRecord(output) && isRecord(output.output) ? output.output : output;
+  if (!isRecord(canvas)) return false;
+  const widgets = Array.isArray(canvas.widgets) ? canvas.widgets : [];
+  const bridges = Array.isArray(canvas.bridges) ? canvas.bridges : [];
+  if (widgets.length === 0) return false;
+
+  for (const widget of widgets) {
+    if (!isRecord(widget)) continue;
+    if (
+      typeof widget.id !== "string" ||
+      typeof widget.type !== "string" ||
+      typeof widget.title !== "string"
+    ) {
+      continue;
+    }
+    canvasStore.addWidget({
+      id: widget.id,
+      type: widget.type,
+      title: widget.title,
+      input: isRecord(widget.input) ? (widget.input as WidgetInput) : {},
+      bindings: isRecord(widget.bindings)
+        ? (widget.bindings as Record<string, ToolBinding>)
+        : undefined,
+      actions: isRecord(widget.actions)
+        ? (widget.actions as Record<string, ToolAction>)
+        : undefined,
+      source: "agent",
+    });
+  }
+
+  for (const bridge of bridges) {
+    if (!isRecord(bridge) || !isRecord(bridge.from) || !isRecord(bridge.to)) {
+      continue;
+    }
+    const from = bridge.from as Record<string, unknown>;
+    const to = bridge.to as Record<string, unknown>;
+    if (
+      typeof from.node_id !== "string" ||
+      typeof from.port !== "string" ||
+      typeof to.node_id !== "string" ||
+      typeof to.port !== "string"
+    ) {
+      continue;
+    }
+    canvasStore.addBridge({
+      id: typeof bridge.id === "string" ? bridge.id : undefined,
+      from: { nodeId: from.node_id, port: from.port },
+      to: { nodeId: to.node_id, port: to.port },
+      transform: typeof bridge.transform === "string" ? bridge.transform : undefined,
+      createdBy: "agent",
+    });
+  }
+
+  return true;
+}
+
+function isCanvasRenderTrace(trace: ToolCallTrace): boolean {
+  return (
+    trace.name === "canvas.render" ||
+    trace.name.endsWith("_canvas_render") ||
+    trace.name.endsWith("canvas_render")
   );
 }
 
@@ -361,6 +433,9 @@ export default function Home() {
           case "tool.done":
             setPending((prev) => prev.filter((p) => p.id !== event.trace.id));
             setTraces((prev) => [...prev, event.trace]);
+            if (isCanvasRenderTrace(event.trace)) {
+              materializeCanvasRender(event.trace.output);
+            }
             break;
           case "canvas_tool.call":
             canvasCalls.push(event.call);

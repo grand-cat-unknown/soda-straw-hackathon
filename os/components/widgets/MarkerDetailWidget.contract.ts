@@ -20,8 +20,7 @@ export const MarkerDetailWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "marker-detail",
-    defaultLayout: { x: 66, y: 0, w: 33, h: 3 },
-    minLayout: { w: 25, h: 2 },
+    defaultLayout: { size: "small", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {

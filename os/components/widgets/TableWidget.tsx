@@ -15,13 +15,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export function TableCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
+export function TableCanvasWidget({
+  node,
+  input,
+  emitOutput,
+  runAction,
+}: WidgetComponentProps) {
   const table = input.table as WorkspaceTable | undefined;
   return table ? (
     <TableWidget
       table={table}
       variant="embedded"
       onSelectedRowsChange={(rows) => emitOutput("selectedRows", rows)}
+      onAddRow={
+        node.actions?.addRow
+          ? () =>
+              runAction("addRow", {
+                table_id: table.id,
+                values: Object.fromEntries(
+                  table.columns.map((column) => [column.name, ""]),
+                ),
+              })
+          : undefined
+      }
     />
   ) : (
     <p className="text-sm text-muted-foreground">No table input.</p>
@@ -32,13 +48,19 @@ export function TableWidget({
   table,
   variant = "card",
   onSelectedRowsChange,
+  onAddRow,
 }: {
   table: WorkspaceTable;
   variant?: "card" | "embedded";
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
+  onAddRow?: () => Promise<unknown>;
 }) {
   const content = (
-    <TableContent table={table} onSelectedRowsChange={onSelectedRowsChange} />
+    <TableContent
+      table={table}
+      onSelectedRowsChange={onSelectedRowsChange}
+      onAddRow={onAddRow}
+    />
   );
 
   if (variant === "embedded") {
@@ -58,9 +80,11 @@ export function TableWidget({
 function TableContent({
   table,
   onSelectedRowsChange,
+  onAddRow,
 }: {
   table: WorkspaceTable;
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
+  onAddRow?: () => Promise<unknown>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Record<string, true>>({});
   const selectedRows = useMemo(
@@ -95,12 +119,22 @@ function TableContent({
 
   return (
     <div className="space-y-2">
-      {onSelectedRowsChange ? (
+      {onSelectedRowsChange || onAddRow ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">
             {selectedRows.length} selected
           </div>
           <div className="flex gap-2">
+            {onAddRow ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void onAddRow()}
+              >
+                Add row
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

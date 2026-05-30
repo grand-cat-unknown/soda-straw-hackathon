@@ -48,13 +48,42 @@ export const FormsWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "forms",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedForm: "Form selection buttons",
       selectedResponse: "Response selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "forms.list",
+      inputPort: "forms",
+      resultPath: "$.forms",
+      purpose: "Render form definitions from the backend.",
+    },
+    {
+      capabilityId: "forms.get",
+      inputPort: "form",
+      resultPath: "$",
+      purpose: "Render one form definition from the backend.",
+    },
+    {
+      capabilityId: "forms.list_responses",
+      inputPort: "responses",
+      resultPath: "$.responses",
+      purpose: "Render submitted form responses from the backend.",
+    },
+  ],
+  toolActions: {
+    createForm: {
+      capabilityId: "forms.create",
+      refreshBindings: ["forms"],
+    },
+    submitResponse: {
+      capabilityId: "forms.submit_response",
+      refreshBindings: ["responses"],
     },
   },
 };

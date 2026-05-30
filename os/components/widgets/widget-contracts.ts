@@ -76,7 +76,24 @@ export function widgetCatalogForPrompt(): string {
     const outputs = Object.entries(contract.outputs)
       .map(([name, port]) => `${name} (${port.description})`)
       .join(", ");
-    return `- '${contract.type}': ${contract.description} Inputs: ${inputs || "none"}. Outputs: ${outputs || "none"}.`;
+    const candidates =
+      contract.toolCandidates
+        ?.map((candidate) => {
+          const transform = candidate.transform
+            ? ` transform=${candidate.transform}`
+            : "";
+          return `${candidate.capabilityId} -> input.${candidate.inputPort} path=${candidate.resultPath ?? "$"}${transform} (${candidate.purpose})`;
+        })
+        .join("; ") ?? "";
+    const actions = contract.toolActions
+      ? Object.entries(contract.toolActions)
+          .map(
+            ([name, action]) =>
+              `${name}: ${action.capabilityId} refresh=${(action.refreshBindings ?? []).join(",") || "none"}`,
+          )
+          .join("; ")
+      : "";
+    return `- '${contract.type}': ${contract.description} Inputs: ${inputs || "none"}. Outputs: ${outputs || "none"}. Tool candidates: ${candidates || "none"}. Direct actions: ${actions || "none"}.`;
   });
   return ["Available widget types (from live contracts):", ...lines].join("\n");
 }

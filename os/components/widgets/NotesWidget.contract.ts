@@ -34,12 +34,39 @@ export const NotesWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "notes",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 4 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedNote: "Note selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "notes.list",
+      inputPort: "notes",
+      resultPath: "$.notes",
+      purpose: "Render notes from the backend.",
+    },
+    {
+      capabilityId: "notes.get",
+      inputPort: "note",
+      resultPath: "$",
+      purpose: "Render one note from the backend.",
+    },
+  ],
+  toolActions: {
+    createNote: {
+      capabilityId: "notes.create",
+      refreshBindings: ["notes"],
+    },
+    updateNote: {
+      capabilityId: "notes.update",
+      refreshBindings: ["notes", "note"],
+    },
+    appendNote: {
+      capabilityId: "notes.append",
+      refreshBindings: ["notes", "note"],
     },
   },
 };

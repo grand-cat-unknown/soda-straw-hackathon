@@ -11,6 +11,8 @@ import {
 import type {
   Bridge,
   CanvasLayout,
+  ToolAction,
+  ToolBinding,
   TransformRef,
   WidgetInput,
 } from "@/lib/workspace/types";
@@ -130,6 +132,8 @@ export function executeCanvasTool(
         type,
         title: typeof args.title === "string" ? args.title : undefined,
         input: (args.input as WidgetInput) ?? {},
+        bindings: args.bindings as Record<string, ToolBinding> | undefined,
+        actions: args.actions as Record<string, ToolAction> | undefined,
         layout: args.layout as CanvasLayout | undefined,
         source: "agent",
       });

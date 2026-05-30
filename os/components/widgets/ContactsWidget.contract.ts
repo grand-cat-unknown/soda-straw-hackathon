@@ -48,13 +48,46 @@ export const ContactsWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "contacts",
-    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
-    minLayout: { w: 33, h: 3 },
+    defaultLayout: { size: "medium", col: 0, row: 0 },
     chrome: "card",
     editable: true,
     outputActions: {
       selectedContact: "Contact selection buttons",
       selectedGroup: "Group selection buttons",
+    },
+  },
+  toolCandidates: [
+    {
+      capabilityId: "contacts.search",
+      inputPort: "contacts",
+      resultPath: "$.contacts",
+      purpose: "Render matching contacts from the backend.",
+    },
+    {
+      capabilityId: "contacts.get",
+      inputPort: "contact",
+      resultPath: "$",
+      purpose: "Render one contact from the backend.",
+    },
+    {
+      capabilityId: "contacts.list_groups",
+      inputPort: "groups",
+      resultPath: "$.groups",
+      purpose: "Render contact groups from the backend.",
+    },
+  ],
+  toolActions: {
+    createContact: {
+      capabilityId: "contacts.create",
+      refreshBindings: ["contacts"],
+    },
+    updateContact: {
+      capabilityId: "contacts.update",
+      refreshBindings: ["contacts", "contact"],
+    },
+    createGroup: {
+      capabilityId: "contacts.create_group",
+      refreshBindings: ["groups"],
     },
   },
 };

@@ -6,6 +6,7 @@ load_dotenv()
 
 from app.auth import API_KEY_HEADER, DEFAULT_API_KEY, verify_api_key
 from app.tools import tool_modules
+from app.ui_metadata import enrich_capability
 
 app = FastAPI(
     title="Fluid OS Mock Capability API",
@@ -53,7 +54,7 @@ def capabilities():
     return {
         "capabilities": [
             {
-                **capability,
+                **enrich_capability(capability),
                 "base_url_path": tool_registry[capability["tool"]]["base_url_path"],
                 "openapi_path": tool_registry[capability["tool"]]["openapi_path"],
                 "auth": tool_registry[capability["tool"]]["auth"],

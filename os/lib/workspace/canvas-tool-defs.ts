@@ -1,4 +1,20 @@
 import { widgetContracts } from "@/lib/workspace/contracts";
+import { TILE_DIMENSIONS } from "@/lib/workspace/types";
+
+const TILE_SIZES = Object.keys(TILE_DIMENSIONS);
+
+const layoutSchema = {
+  type: "object",
+  description:
+    "Tile placement on the 6-column canvas grid. `size` picks the tile shape, `col` is 0-5 (left cell), `row` is 0+ (top cell).",
+  properties: {
+    size: { type: "string", enum: TILE_SIZES },
+    col: { type: "number", minimum: 0, maximum: 5 },
+    row: { type: "number", minimum: 0 },
+  },
+  required: ["size", "col", "row"],
+  additionalProperties: false,
+};
 
 export type CanvasToolName =
   | "canvas_announce_plan"
@@ -128,20 +144,22 @@ export const canvasToolDefs: CanvasToolDef[] = [
         input: {
           type: "object",
           description:
-            "Initial input shaped for the widget contract (e.g. { markers: [...] } for a map).",
+            "Initial view config or seed data shaped for the widget contract. Prefer bindings for backend-backed data.",
           additionalProperties: true,
         },
-        layout: {
+        bindings: {
           type: "object",
-          properties: {
-            x: { type: "number" },
-            y: { type: "number" },
-            w: { type: "number" },
-            h: { type: "number" },
-          },
-          required: ["x", "y", "w", "h"],
-          additionalProperties: false,
+          description:
+            "Backend data bindings keyed by widget input port. Each binding uses capabilityId, params, resultPath, transform, and refresh.",
+          additionalProperties: true,
         },
+        actions: {
+          type: "object",
+          description:
+            "Direct widget actions keyed by action name. Each action uses capabilityId, params, and refreshBindings.",
+          additionalProperties: true,
+        },
+        layout: layoutSchema,
       },
       required: ["type"],
       additionalProperties: false,
@@ -175,22 +193,13 @@ export const canvasToolDefs: CanvasToolDef[] = [
   {
     type: "function",
     name: "canvas_set_layout",
-    description: "Set the layout (x, y, w, h) for a widget.",
+    description:
+      "Set the tile layout for a widget. layout = { size, col, row } on the 6-column grid.",
     parameters: {
       type: "object",
       properties: {
         node_id: { type: "string" },
-        layout: {
-          type: "object",
-          properties: {
-            x: { type: "number" },
-            y: { type: "number" },
-            w: { type: "number" },
-            h: { type: "number" },
-          },
-          required: ["x", "y", "w", "h"],
-          additionalProperties: false,
-        },
+        layout: layoutSchema,
       },
       required: ["node_id", "layout"],
       additionalProperties: false,
