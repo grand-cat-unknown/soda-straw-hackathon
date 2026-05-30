@@ -7,6 +7,7 @@ import {
   bindingResultPath,
   findToolCandidate,
 } from "@/lib/workspace/bindings";
+import { getWidgetContract } from "@/lib/workspace/contracts";
 import { canvasStore } from "@/lib/workspace/store";
 import type {
   NodeId,
@@ -165,7 +166,9 @@ export async function runWidgetAction(
   actionName: string,
   payload: Record<string, unknown> = {},
 ): Promise<unknown> {
-  const action = node.actions?.[actionName];
+  const action =
+    node.actions?.[actionName] ??
+    getWidgetContract(node.type)?.toolActions?.[actionName];
   if (!action) {
     throw new Error(`${node.title} does not define action ${actionName}.`);
   }

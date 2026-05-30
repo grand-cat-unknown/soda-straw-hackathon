@@ -1,5 +1,6 @@
 import {
   AnySchema,
+  StringSchema,
   UnknownArraySchema,
   UnknownRecordSchema,
 } from "@/lib/workspace/schemas";
@@ -18,6 +19,16 @@ export const CalendarWidgetContract: WidgetContract = {
     reminders: {
       schema: UnknownArraySchema,
       description: "Reminders from calendar.list_reminders.",
+      optional: true,
+    },
+    selectedContacts: {
+      schema: UnknownArraySchema,
+      description: "Contacts selected in another widget to check availability for.",
+      optional: true,
+    },
+    availability: {
+      schema: UnknownArraySchema,
+      description: "Per-contact availability returned by calendar.availability.",
       optional: true,
     },
     event: {
@@ -45,6 +56,10 @@ export const CalendarWidgetContract: WidgetContract = {
       schema: UnknownRecordSchema,
       description: "Reminder selected by the user.",
     },
+    selectedDay: {
+      schema: StringSchema,
+      description: "Day selected by the user for availability checks.",
+    },
   },
   render: {
     renderer: "calendar",
@@ -54,6 +69,7 @@ export const CalendarWidgetContract: WidgetContract = {
     outputActions: {
       selectedEvent: "Event selection buttons",
       selectedReminder: "Reminder selection buttons",
+      selectedDay: "Date selector",
     },
   },
   toolCandidates: [
@@ -84,6 +100,9 @@ export const CalendarWidgetContract: WidgetContract = {
     createReminder: {
       capabilityId: "calendar.create_reminder",
       refreshBindings: ["reminders"],
+    },
+    checkAvailability: {
+      capabilityId: "calendar.availability",
     },
   },
 };
