@@ -228,8 +228,8 @@ type Transform = {
   apply: (value: unknown, params?: Record<string, unknown>) => unknown;
 };
 
-registerTransform(t: Transform): void;
 listTransforms(): Transform[];
+getTransform(id: string): Transform | undefined;
 applyTransform(ref: TransformRef, value: unknown): unknown;
 ```
 
@@ -298,7 +298,3 @@ Each phase ships independently and leaves the OS in a working state.
 | 8 | Async transforms are out of scope for v1 | Keeps bridge runtime state simple until pending/error UX is designed. |
 | 9 | Widgets own their design box | A widget owns its contract, render metadata, renderer component, and output actions; bridges/transforms own all cross-widget translation. |
 | 10 | Generic renderer hosts, never specializes | The canvas renderer may provide chrome/layout/editing/output inspection, but widget render bodies live in widget modules and are selected through a registry. |
-
-## Open
-
-- Whether transforms can be registered at runtime from a tool result (deferred to post-v1).
