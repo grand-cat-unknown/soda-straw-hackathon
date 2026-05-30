@@ -211,6 +211,7 @@ export type BridgeSuggestion = {
   to: { nodeId: NodeId; port: Port };
   fromType: WidgetType;
   toType: WidgetType;
+  transform?: TransformRef;
   score: number;
 };
 

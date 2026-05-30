@@ -89,6 +89,15 @@ function touch(next: CanvasState, source: CanvasMutationSource): void {
   };
 }
 
+function outputsEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
 function normalizeTransform(
   transform: TransformRef | string | null | undefined,
 ): TransformRef | undefined {
@@ -335,6 +344,7 @@ export const canvasStore = {
     source: CanvasMutationSource = "user",
   ) {
     if (!state.nodes[nodeId]) return;
+    if (outputsEqual(state.outputs[nodeId]?.[port], value)) return;
     const next = cloneState();
     next.outputs[nodeId] = {
       ...(next.outputs[nodeId] ?? {}),

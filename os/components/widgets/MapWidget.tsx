@@ -21,6 +21,14 @@ export type MapWidgetProps = {
 
 export function MapCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
   const markers = (input.markers as Place[] | undefined) ?? [];
+  const markersKey = useMemo(() => JSON.stringify(markers), [markers]);
+  const emittedMarkersKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (emittedMarkersKeyRef.current === markersKey) return;
+    emittedMarkersKeyRef.current = markersKey;
+    emitOutput("availableMarkers", markers);
+  }, [emitOutput, markersKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-3">

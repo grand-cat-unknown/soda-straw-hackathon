@@ -63,6 +63,23 @@ function transformCompatible(
   );
 }
 
+function suggestedTransform(
+  outName: string,
+  inName: string,
+  fromSchema: JsonSchema,
+  toSchema: JsonSchema,
+): TransformRef | undefined {
+  if (
+    inName === "markers" &&
+    fromSchema.type === "array" &&
+    toSchema.$id === "fluid.place.array" &&
+    outName.toLowerCase().includes("contact")
+  ) {
+    return { id: "recordsToMarkers" };
+  }
+  return undefined;
+}
+
 export function validateBridge(
   state: CanvasState,
   bridge: Bridge,
@@ -180,6 +197,7 @@ export function suggestBridges(
           to: { nodeId: newNodeId, port: inName },
           fromType: existingNode.type,
           toType: newNode.type,
+          transform: suggestedTransform(outName, inName, outPort.schema, inPort.schema),
           score:
             schemaScore(outPort.schema, inPort.schema) +
             semanticScore(outName, inName),
@@ -204,6 +222,7 @@ export function suggestBridges(
           to: { nodeId: existingId, port: inName },
           fromType: newNode.type,
           toType: existingNode.type,
+          transform: suggestedTransform(outName, inName, outPort.schema, inPort.schema),
           score:
             schemaScore(outPort.schema, inPort.schema) +
             semanticScore(outName, inName),

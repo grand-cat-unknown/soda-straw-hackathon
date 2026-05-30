@@ -16,6 +16,11 @@ export const SearchWidgetContract: WidgetContract = {
       description: "Search query.",
       optional: true,
     },
+    markers: {
+      schema: UnknownArraySchema,
+      description: "Map markers to use as location context for the search query.",
+      optional: true,
+    },
     results: {
       schema: UnknownArraySchema,
       description: "Search results from search.web.",
@@ -55,4 +60,9 @@ export const SearchWidgetContract: WidgetContract = {
       purpose: "Render web search results from the backend.",
     },
   ],
+  toolActions: {
+    searchWeb: {
+      capabilityId: "search.web",
+    },
+  },
 };

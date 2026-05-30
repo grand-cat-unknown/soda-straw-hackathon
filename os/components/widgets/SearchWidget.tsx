@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,23 +15,72 @@ import {
   WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
-export function SearchWidget({ input, emitOutput }: WidgetComponentProps) {
+export function SearchWidget({ input, emitOutput, runAction }: WidgetComponentProps) {
   const result = isRecord(input.result) ? input.result : input;
-  const query = getString(result, "query") ?? getString(input, "query");
+  const markers = asRecords(input.markers);
+  const seedQuery = getString(result, "query") ?? getString(input, "query") ?? "";
+  const [query, setQuery] = useState(seedQuery);
+  const [searchResult, setSearchResult] = useState<Record<string, unknown> | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const markerContext = useMemo(() => markers.map(markerSearchContext).filter(Boolean), [markers]);
   const results = asRecords(result.results).length
     ? asRecords(result.results)
-    : asRecords(input.results);
+    : asRecords(searchResult?.results).length
+      ? asRecords(searchResult?.results)
+      : asRecords(input.results);
+
+  useEffect(() => {
+    if (seedQuery) setQuery(seedQuery);
+  }, [seedQuery]);
+
+  async function submitSearch() {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    setSearchError(null);
+    setIsSearching(true);
+    try {
+      const output = await runAction("searchWeb", {
+        query: buildSearchQuery(trimmedQuery, markerContext),
+        num_results: 8,
+      });
+      setSearchResult(isRecord(output) ? output : null);
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : "Search failed.");
+    } finally {
+      setIsSearching(false);
+    }
+  }
 
   if (results.length === 0) {
     return (
-      <EmptyWidget icon={<Search className="h-4 w-4" aria-hidden />}>
-        No search results yet.
-      </EmptyWidget>
+      <div className="space-y-3">
+        <SearchControls
+          query={query}
+          markersCount={markers.length}
+          isSearching={isSearching}
+          error={searchError}
+          onQueryChange={setQuery}
+          onSubmit={() => void submitSearch()}
+        />
+        <EmptyWidget icon={<Search className="h-4 w-4" aria-hidden />}>
+          No search results yet.
+        </EmptyWidget>
+      </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      <SearchControls
+        query={query}
+        markersCount={markers.length}
+        isSearching={isSearching}
+        error={searchError}
+        onQueryChange={setQuery}
+        onSubmit={() => void submitSearch()}
+      />
       {query ? (
         <div className="text-sm text-muted-foreground">
           Results for <span className="font-medium text-foreground">{query}</span>
@@ -95,4 +145,67 @@ export function SearchWidget({ input, emitOutput }: WidgetComponentProps) {
       </div>
     </div>
   );
+}
+
+function SearchControls({
+  query,
+  markersCount,
+  isSearching,
+  error,
+  onQueryChange,
+  onSubmit,
+}: {
+  query: string;
+  markersCount: number;
+  isSearching: boolean;
+  error: string | null;
+  onQueryChange: (query: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="grid min-w-0 flex-1 gap-1 text-xs text-muted-foreground">
+          Query
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onSubmit();
+            }}
+            placeholder="Find bars closest to these markers"
+            className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+          />
+        </label>
+        <Button type="button" size="sm" onClick={onSubmit} disabled={isSearching}>
+          {isSearching ? "Searching" : "Search"}
+        </Button>
+      </div>
+      {markersCount > 0 ? (
+        <div className="text-xs text-muted-foreground">
+          Using {markersCount} map marker{markersCount === 1 ? "" : "s"} as location context.
+        </div>
+      ) : null}
+      {error ? <div className="text-xs text-destructive">{error}</div> : null}
+    </div>
+  );
+}
+
+function buildSearchQuery(query: string, markerContext: string[]): string {
+  if (markerContext.length === 0) return query;
+  return `${query}. Use these marker locations as the location context: ${markerContext.join("; ")}. Prioritize nearby places.`;
+}
+
+function markerSearchContext(marker: Record<string, unknown>): string {
+  const label = getString(marker, "label") ?? getString(marker, "name") ?? getString(marker, "id");
+  const city = getString(marker, "city");
+  const lat = getNumber(marker, "lat");
+  const lng = getNumber(marker, "lng");
+  const parts = [
+    label,
+    city,
+    lat !== undefined && lng !== undefined ? `${lat},${lng}` : undefined,
+  ].filter(Boolean);
+  return parts.join(" ");
 }

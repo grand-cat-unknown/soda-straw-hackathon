@@ -21,6 +21,10 @@ export const MapWidgetContract: WidgetContract = {
     },
   },
   outputs: {
+    availableMarkers: {
+      schema: PlaceArraySchema,
+      description: "All markers currently rendered by the map, typically the available contacts sent into the map.",
+    },
     selectedMarker: {
       schema: PlaceSchema,
       description: "Marker the user last clicked.",
@@ -32,6 +36,7 @@ export const MapWidgetContract: WidgetContract = {
     chrome: "card",
     editable: true,
     outputActions: {
+      availableMarkers: "Current rendered markers",
       selectedMarker: "Marker click or marker selection buttons",
     },
   },

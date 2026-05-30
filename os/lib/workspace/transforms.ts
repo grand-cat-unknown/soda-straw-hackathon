@@ -43,6 +43,26 @@ export function sortByKey(
   });
 }
 
+export function recordsToMarkers(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value
+    .filter((record): record is Record<string, unknown> =>
+      Boolean(record && typeof record === "object" && !Array.isArray(record)),
+    )
+    .map((record, index) => {
+      const lat = Number(record.lat);
+      const lng = Number(record.lng);
+      return {
+        ...record,
+        id: String(record.id ?? `marker:${index}`),
+        lat,
+        lng,
+        label: String(record.label ?? record.name ?? `Marker ${index + 1}`),
+      };
+    })
+    .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lng));
+}
+
 const transforms: Record<string, Transform> = {
   identity: {
     id: "identity",
@@ -64,6 +84,13 @@ const transforms: Record<string, Transform> = {
     inputSchema: { $id: "fluid.array", type: "array" },
     outputSchema: { $id: "fluid.array", type: "array" },
     apply: sortByKey,
+  },
+  recordsToMarkers: {
+    id: "recordsToMarkers",
+    description: "Convert records with lat/lng and name/label fields into map markers while preserving extra fields.",
+    inputSchema: { $id: "fluid.array", type: "array" },
+    outputSchema: { $id: "fluid.place.array", type: "array" },
+    apply: recordsToMarkers,
   },
 };
 
