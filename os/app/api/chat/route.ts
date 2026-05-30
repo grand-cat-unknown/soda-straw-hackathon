@@ -77,11 +77,12 @@ const BASE_INSTRUCTIONS = [
   "Do not claim to have done something unless a tool call actually did it.",
 ].join(" ");
 
+const WIDGET_CATALOG_FRAGMENT = widgetCatalogForPrompt();
+
 async function buildInstructions(): Promise<string> {
   const catalog = await fetchStrawCatalog();
   const fragment = catalogToSystemFragment(catalog);
-  const widgets = widgetCatalogForPrompt();
-  const parts = [BASE_INSTRUCTIONS, widgets];
+  const parts = [BASE_INSTRUCTIONS, WIDGET_CATALOG_FRAGMENT];
   if (fragment) parts.push(fragment);
   return parts.join("\n\n");
 }
@@ -127,7 +128,7 @@ function buildInput(
     `Current user request:\n${message}`,
     "",
     "Current canvas snapshot, which is the authoritative workspace state:",
-    JSON.stringify(canvas ?? null, null, 2),
+    JSON.stringify(canvas ?? null),
   ].join("\n");
 }
 
@@ -158,7 +159,6 @@ type ChatRequestBody =
       message: string;
       canvas?: unknown;
       conversation?: ConversationMessage[];
-      space?: { id?: string; title?: string };
     }
   | {
       previous_response_id: string;

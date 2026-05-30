@@ -272,10 +272,6 @@ export default function Home() {
           {
             message: trimmed,
             conversation,
-            space: {
-              id: activeSpace.id,
-              title: nextTitle,
-            },
             canvas: getCanvasStateForAgent(),
           },
           controller,
