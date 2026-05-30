@@ -6,6 +6,11 @@ export const StringSchema: JsonSchema = { $id: "fluid.string", type: "string" };
 
 export const NumberSchema: JsonSchema = { $id: "fluid.number", type: "number" };
 
+export const UnknownArraySchema: JsonSchema = {
+  $id: "fluid.array",
+  type: "array",
+};
+
 export const TableSchema: JsonSchema = {
   $id: "fluid.table",
   type: "object",
@@ -82,4 +87,14 @@ export const CanvasSchema: JsonSchema = {
 export const UnknownRecordSchema: JsonSchema = {
   $id: "fluid.record",
   type: "object",
+};
+
+export const CalculatorResultSchema: JsonSchema = {
+  $id: "fluid.calculator.result",
+  type: "object",
+  properties: {
+    value: NumberSchema,
+    expression: StringSchema,
+    ranked: UnknownArraySchema,
+  },
 };
