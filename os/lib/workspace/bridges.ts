@@ -54,6 +54,7 @@ function transformCompatible(
   toSchema: JsonSchema,
 ): boolean {
   if (!transform) return schemasCompatible(fromSchema, toSchema);
+  if (transform.id === "identity") return schemasCompatible(fromSchema, toSchema);
   const registered = getTransform(transform.id);
   if (!registered) return false;
   return (
