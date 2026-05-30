@@ -36,12 +36,14 @@ export function TableCanvasWidget({
       onSelectedRowsChange={(rows) => emitOutput("selectedRows", rows)}
       onAddRow={
         node.actions?.addRow
-          ? () =>
+          ? (values) =>
               runAction("addRow", {
                 table_id: renderedTable.id,
-                values: Object.fromEntries(
-                  renderedTable.columns.map((column) => [column.name, ""]),
-                ),
+                values:
+                  values ??
+                  Object.fromEntries(
+                    renderedTable.columns.map((column) => [column.name, ""]),
+                  ),
               })
           : undefined
       }
@@ -60,7 +62,7 @@ export function TableWidget({
   table: WorkspaceTable;
   variant?: "card" | "embedded";
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
-  onAddRow?: () => Promise<unknown>;
+  onAddRow?: (values?: Record<string, unknown>) => Promise<unknown>;
 }) {
   const content = (
     <TableContent
@@ -91,16 +93,24 @@ function TableContent({
 }: {
   table: WorkspaceTable;
   onSelectedRowsChange?: (rows: WorkspaceTable["rows"]) => void;
-  onAddRow?: () => Promise<unknown>;
+  onAddRow?: (values?: Record<string, unknown>) => Promise<unknown>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Record<string, true>>({});
+  const [newRow, setNewRow] = useState<Record<string, string>>({});
   const selectedRows = useMemo(
     () => table.rows.filter((row) => selectedIds[row.id]),
     [selectedIds, table.rows],
   );
 
-  if (table.rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No rows yet.</p>;
+  async function submitNewRow() {
+    if (!onAddRow) return;
+    const hasContent = Object.values(newRow).some((value) => value.trim().length > 0);
+    if (!hasContent) return;
+    const values = Object.fromEntries(
+      table.columns.map((column) => [column.name, newRow[column.name] ?? ""]),
+    );
+    await onAddRow(values);
+    setNewRow({});
   }
 
   function toggleRow(rowId: string) {
@@ -126,22 +136,12 @@ function TableContent({
 
   return (
     <div className="space-y-2">
-      {onSelectedRowsChange || onAddRow ? (
+      {onSelectedRowsChange ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">
             {selectedRows.length} selected
           </div>
           <div className="flex gap-2">
-            {onAddRow ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void onAddRow()}
-              >
-                Add row
-              </Button>
-            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -180,6 +180,16 @@ function TableContent({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {table.rows.length === 0 && !onAddRow ? (
+            <TableRow>
+              <TableCell
+                colSpan={table.columns.length + (onSelectedRowsChange ? 1 : 0)}
+                className="text-sm text-muted-foreground"
+              >
+                No rows yet.
+              </TableCell>
+            </TableRow>
+          ) : null}
           {table.rows.map((row) => (
             <TableRow
               key={row.id}
@@ -201,8 +211,44 @@ function TableContent({
               ))}
             </TableRow>
           ))}
+          {onAddRow ? (
+            <TableRow className="bg-muted/30">
+              {onSelectedRowsChange ? <TableCell /> : null}
+              {table.columns.map((col, index) => (
+                <TableCell key={col.name} className="py-1">
+                  <input
+                    value={newRow[col.name] ?? ""}
+                    placeholder={index === 0 ? `Add ${col.name}…` : col.name}
+                    onChange={(event) =>
+                      setNewRow((prev) => ({ ...prev, [col.name]: event.target.value }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitNewRow();
+                      }
+                    }}
+                    className="w-full rounded border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </TableCell>
+              ))}
+            </TableRow>
+          ) : null}
         </TableBody>
       </Table>
+      {onAddRow ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void submitNewRow()}
+            disabled={!Object.values(newRow).some((v) => v.trim().length > 0)}
+          >
+            Add row
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

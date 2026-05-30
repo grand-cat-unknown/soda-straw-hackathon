@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Pencil, Send, Trash2, Users, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Pencil, Trash2, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { WidgetComponentProps } from "@/lib/workspace";
 import {
   asRecords,
@@ -28,6 +29,70 @@ export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetCom
     email: "",
     city: "",
   });
+  const [selectedContactIds, setSelectedContactIds] = useState<Record<string, true>>({});
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Record<string, true>>({});
+
+  const contactKey = (contact: Record<string, unknown>, index: number) =>
+    getString(contact, "id") ?? `contact:${index}`;
+  const groupKey = (group: Record<string, unknown>, index: number) =>
+    getString(group, "id") ?? `group:${index}`;
+
+  const selectedContacts = useMemo(
+    () => contacts.filter((contact, index) => selectedContactIds[contactKey(contact, index)]),
+    [contacts, selectedContactIds],
+  );
+  const selectedGroups = useMemo(
+    () => groups.filter((group, index) => selectedGroupIds[groupKey(group, index)]),
+    [groups, selectedGroupIds],
+  );
+
+  function toggleContact(key: string, contact: Record<string, unknown>) {
+    const next = { ...selectedContactIds };
+    if (next[key]) delete next[key];
+    else next[key] = true;
+    setSelectedContactIds(next);
+    const list = contacts.filter((c, i) => next[contactKey(c, i)]);
+    emitOutput("selectedContacts", list);
+    if (list.length === 1) emitOutput("selectedContact", list[0]);
+    if (next[key]) emitOutput("selectedContact", contact);
+  }
+
+  function toggleGroup(key: string, group: Record<string, unknown>) {
+    const next = { ...selectedGroupIds };
+    if (next[key]) delete next[key];
+    else next[key] = true;
+    setSelectedGroupIds(next);
+    const list = groups.filter((g, i) => next[groupKey(g, i)]);
+    emitOutput("selectedGroups", list);
+    if (list.length === 1) emitOutput("selectedGroup", list[0]);
+    if (next[key]) emitOutput("selectedGroup", group);
+  }
+
+  function selectAllContacts() {
+    const next: Record<string, true> = Object.fromEntries(
+      contacts.map((contact, index) => [contactKey(contact, index), true]),
+    );
+    setSelectedContactIds(next);
+    emitOutput("selectedContacts", contacts);
+  }
+
+  function clearContactSelection() {
+    setSelectedContactIds({});
+    emitOutput("selectedContacts", []);
+  }
+
+  function selectAllGroups() {
+    const next: Record<string, true> = Object.fromEntries(
+      groups.map((group, index) => [groupKey(group, index), true]),
+    );
+    setSelectedGroupIds(next);
+    emitOutput("selectedGroups", groups);
+  }
+
+  function clearGroupSelection() {
+    setSelectedGroupIds({});
+    emitOutput("selectedGroups", []);
+  }
 
   if (contacts.length === 0 && groups.length === 0) {
     return (
@@ -44,18 +109,36 @@ export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetCom
   return (
     <div className="space-y-3">
       {contacts.length > 0 ? (
-        <ul className="divide-y divide-border rounded-md border border-border bg-card">
+        <>
+          <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+            <span>{selectedContacts.length} selected</span>
+            <div className="flex gap-1">
+              <Button type="button" size="xs" variant="ghost" onClick={selectAllContacts}>
+                Select all
+              </Button>
+              <Button type="button" size="xs" variant="ghost" onClick={clearContactSelection}>
+                Clear
+              </Button>
+            </div>
+          </div>
+          <ul className="divide-y divide-border rounded-md border border-border bg-card">
           {contacts.map((contact, index) => {
             const contactId = getString(contact, "id");
+            const key = contactKey(contact, index);
             const name = getString(contact, "name") ?? `Contact ${index + 1}`;
             const relationship = getString(contact, "relationship");
             const city = getString(contact, "city");
             const email = getString(contact, "email");
             const isEditing = editingId !== null && contactId === editingId;
             const tags = getArray(contact, "tags");
+            const isSelected = Boolean(selectedContactIds[key]);
 
             return (
-              <li key={contactId ?? `contact:${index}`} className="group px-2 py-1.5 text-sm">
+              <li
+                key={contactId ?? `contact:${index}`}
+                data-state={isSelected ? "selected" : undefined}
+                className="group px-2 py-1.5 text-sm data-[state=selected]:bg-accent/40"
+              >
                 {isEditing ? (
                   <div className="space-y-1">
                     <input
@@ -105,6 +188,12 @@ export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetCom
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => toggleContact(key, contact)}
+                      aria-label={`Select ${name}`}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate font-medium">{name}</span>
@@ -137,15 +226,6 @@ export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetCom
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       ) : null}
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="Select contact"
-                        onClick={() => emitOutput("selectedContact", contact)}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                      </Button>
                       {canDelete && contactId ? (
                         <Button
                           type="button"
@@ -164,32 +244,49 @@ export function ContactsWidget({ input, emitOutput, node, runAction }: WidgetCom
             );
           })}
         </ul>
+        </>
       ) : null}
 
       {groups.length > 0 ? (
         <div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">Groups</div>
+          <div className="mb-1 flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+            <span>
+              <span className="font-medium">Groups</span>
+              <span className="ml-2">{selectedGroups.length} selected</span>
+            </span>
+            <div className="flex gap-1">
+              <Button type="button" size="xs" variant="ghost" onClick={selectAllGroups}>
+                Select all
+              </Button>
+              <Button type="button" size="xs" variant="ghost" onClick={clearGroupSelection}>
+                Clear
+              </Button>
+            </div>
+          </div>
           <ul className="divide-y divide-border rounded-md border border-border bg-card">
             {groups.map((group, index) => {
               const groupId = getString(group, "id");
+              const key = groupKey(group, index);
               const name = getString(group, "name") ?? `Group ${index + 1}`;
               const people = getArray(group, "person_ids").length;
+              const isSelected = Boolean(selectedGroupIds[key]);
               return (
-                <li key={groupId ?? `group:${index}`} className="group flex items-center gap-2 px-2 py-1.5 text-sm">
+                <li
+                  key={groupId ?? `group:${index}`}
+                  data-state={isSelected ? "selected" : undefined}
+                  className="group flex items-center gap-2 px-2 py-1.5 text-sm data-[state=selected]:bg-accent/40"
+                >
+                  <Checkbox
+                    checked={isSelected}
+                    onChange={() => toggleGroup(key, group)}
+                    aria-label={`Select ${name}`}
+                    className="shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <span className="truncate font-medium">{name}</span>
                     <span className="ml-2 text-xs text-muted-foreground">{people} people</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label="Select group"
-                      onClick={() => emitOutput("selectedGroup", group)}
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </Button>
                     {canDeleteGroup && groupId ? (
                       <Button
                         type="button"

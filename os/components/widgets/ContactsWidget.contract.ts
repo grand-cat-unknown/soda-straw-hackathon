@@ -52,9 +52,17 @@ export const ContactsWidgetContract: WidgetContract = {
       schema: UnknownRecordSchema,
       description: "Contact selected by the user.",
     },
+    selectedContacts: {
+      schema: UnknownArraySchema,
+      description: "Contacts selected by the user via checkboxes.",
+    },
     selectedGroup: {
       schema: UnknownRecordSchema,
       description: "Group selected by the user.",
+    },
+    selectedGroups: {
+      schema: UnknownArraySchema,
+      description: "Groups selected by the user via checkboxes.",
     },
   },
   render: {
@@ -64,7 +72,9 @@ export const ContactsWidgetContract: WidgetContract = {
     editable: true,
     outputActions: {
       selectedContact: "Contact selection buttons",
+      selectedContacts: "Contact multi-select checkboxes",
       selectedGroup: "Group selection buttons",
+      selectedGroups: "Group multi-select checkboxes",
     },
   },
   toolCandidates: [
