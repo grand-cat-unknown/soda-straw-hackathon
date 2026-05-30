@@ -89,6 +89,15 @@ capabilities = [
         "output_model": "Task",
         "tags": ["planning", "action"],
     },
+    {
+        "id": "tasks.delete",
+        "tool": "tasks",
+        "name": "Delete Task",
+        "description": "Delete a task by ID.",
+        "method": "DELETE",
+        "endpoint": "/tasks/{task_id}",
+        "tags": ["planning", "action"],
+    },
 ]
 
 
@@ -127,4 +136,13 @@ def update_task(task_id: str, payload: TaskUpdate):
         tasks[index] = updated
         return updated
 
+    raise HTTPException(status_code=404, detail=f"Task {task_id} not found.")
+
+
+@router.delete("/{task_id}", status_code=204)
+def delete_task(task_id: str):
+    for index, task in enumerate(tasks):
+        if task.id == task_id:
+            del tasks[index]
+            return
     raise HTTPException(status_code=404, detail=f"Task {task_id} not found.")

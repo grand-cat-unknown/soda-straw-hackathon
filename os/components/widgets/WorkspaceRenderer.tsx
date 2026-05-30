@@ -104,7 +104,7 @@ function resolvePlacements(
   return result;
 }
 
-export function WorkspaceRenderer() {
+export function WorkspaceRenderer({ debug = false }: { debug?: boolean }) {
   const canvas = useCanvasState();
   const nodes = Object.values(canvas.nodes);
 
@@ -128,6 +128,7 @@ export function WorkspaceRenderer() {
         edges={Object.values(canvas.edges)}
         placements={placements}
         maxRow={maxRow}
+        debug={debug}
       />
       {nodes.map((node) => {
         const p = placements[node.id];
@@ -140,7 +141,7 @@ export function WorkspaceRenderer() {
               gridRow: `${p.row + 1} / span ${p.rows}`,
             }}
           >
-            <WidgetFrame node={node}>
+            <WidgetFrame node={node} debug={debug}>
               <WidgetBody
                 node={node}
                 input={node.input}
@@ -160,10 +161,12 @@ function BridgeOverlay({
   edges,
   placements,
   maxRow,
+  debug,
 }: {
   edges: Bridge[];
   placements: Record<string, Cell>;
   maxRow: number;
+  debug: boolean;
 }) {
   const visibleEdges = edges
     .map((edge) => {
@@ -227,16 +230,18 @@ function BridgeOverlay({
             strokeLinecap="round"
             strokeWidth="3"
           />
-          <foreignObject
-            x={labelX - 52}
-            y={labelY - 13}
-            width="104"
-            height="26"
-          >
-            <div className="mx-auto max-w-[104px] truncate rounded-full border border-border bg-card/95 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground shadow-sm">
-              {`${edge.from.port} -> ${edge.to.port}`}
-            </div>
-          </foreignObject>
+          {debug ? (
+            <foreignObject
+              x={labelX - 52}
+              y={labelY - 13}
+              width="104"
+              height="26"
+            >
+              <div className="mx-auto max-w-[104px] truncate rounded-full border border-border bg-card/95 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground shadow-sm">
+                {`${edge.from.port} -> ${edge.to.port}`}
+              </div>
+            </foreignObject>
+          ) : null}
         </g>
       ))}
     </svg>
@@ -246,9 +251,11 @@ function BridgeOverlay({
 function WidgetFrame({
   node,
   children,
+  debug,
 }: {
   node: WidgetNode;
   children: ReactNode;
+  debug: boolean;
 }) {
   const definition = widgetRegistry[node.type];
   const contract = getWidgetContract(node.type);
@@ -319,7 +326,7 @@ function WidgetFrame({
             </Button>
           </div>
         </div>
-        {contract ? (
+        {debug && contract ? (
           <div className="flex flex-wrap gap-1.5">
             {Object.keys(contract.inputs).map((port) => (
               <Badge
@@ -388,7 +395,7 @@ function WidgetFrame({
           </div>
         ) : null}
         {children}
-        {Object.keys(outputs).length > 0 ? (
+        {debug && Object.keys(outputs).length > 0 ? (
           <details className="rounded-md border border-border bg-muted/40 p-3">
             <summary className="cursor-pointer text-xs font-medium">
               Outputs

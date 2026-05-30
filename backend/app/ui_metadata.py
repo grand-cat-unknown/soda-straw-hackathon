@@ -260,6 +260,66 @@ UI_ACTIONS: dict[str, list[dict[str, Any]]] = {
             "purpose": "create a task, then refresh the task list",
             "refresh": ["tasks"],
         },
+        {
+            "name": "deleteTask",
+            "capability_id": "tasks.delete",
+            "purpose": "delete a task, then refresh the task list",
+            "refresh": ["tasks"],
+        },
+    ],
+    "notes.list": [
+        {
+            "name": "createNote",
+            "capability_id": "notes.create",
+            "purpose": "create a note, then refresh the notes list",
+            "refresh": ["notes"],
+        },
+        {
+            "name": "updateNote",
+            "capability_id": "notes.update",
+            "purpose": "update a note, then refresh the notes list",
+            "refresh": ["notes"],
+        },
+        {
+            "name": "deleteNote",
+            "capability_id": "notes.delete",
+            "purpose": "delete a note, then refresh the notes list",
+            "refresh": ["notes"],
+        },
+    ],
+    "contacts.search": [
+        {
+            "name": "createContact",
+            "capability_id": "contacts.create",
+            "purpose": "create a contact, then refresh the contacts list",
+            "refresh": ["contacts"],
+        },
+        {
+            "name": "updateContact",
+            "capability_id": "contacts.update",
+            "purpose": "update a contact, then refresh the contacts list",
+            "refresh": ["contacts"],
+        },
+        {
+            "name": "deleteContact",
+            "capability_id": "contacts.delete",
+            "purpose": "delete a contact, then refresh the contacts list",
+            "refresh": ["contacts"],
+        },
+    ],
+    "contacts.list_groups": [
+        {
+            "name": "createGroup",
+            "capability_id": "contacts.create_group",
+            "purpose": "create a group, then refresh the groups list",
+            "refresh": ["groups"],
+        },
+        {
+            "name": "deleteGroup",
+            "capability_id": "contacts.delete_group",
+            "purpose": "delete a group, then refresh the groups list",
+            "refresh": ["groups"],
+        },
     ],
 }
 

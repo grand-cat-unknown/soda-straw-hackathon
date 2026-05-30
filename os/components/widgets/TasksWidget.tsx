@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Circle, ListChecks, Send } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle2, Circle, ListChecks, Pencil, Send, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { WidgetComponentProps } from "@/lib/workspace";
@@ -10,8 +11,6 @@ import {
   formatDate,
   getString,
   isRecord,
-  WidgetItem,
-  WidgetMeta,
 } from "@/components/widgets/widget-utils";
 
 export function TasksWidget({ node, input, emitOutput, runAction }: WidgetComponentProps) {
@@ -24,6 +23,9 @@ export function TasksWidget({ node, input, emitOutput, runAction }: WidgetCompon
         ? [input.task]
         : [];
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+
   if (tasks.length === 0) {
     return (
       <EmptyWidget icon={<ListChecks className="h-4 w-4" aria-hidden />}>
@@ -32,93 +34,153 @@ export function TasksWidget({ node, input, emitOutput, runAction }: WidgetCompon
     );
   }
 
-  const openCount = tasks.filter((task) => getString(task, "status") !== "done")
-    .length;
+  const openCount = tasks.filter((task) => getString(task, "status") !== "done").length;
+  const canUpdate = Boolean(node.actions?.updateTask);
+  const canDelete = Boolean(node.actions?.deleteTask);
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="text-muted-foreground">
-          {openCount} open, {tasks.length - openCount} done
-        </span>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => emitOutput("status", "open")}
-          >
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{openCount} open · {tasks.length - openCount} done</span>
+        <div className="flex gap-1">
+          <Button type="button" size="xs" variant="ghost" onClick={() => emitOutput("status", "open")}>
             Open
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => emitOutput("status", "done")}
-          >
+          <Button type="button" size="xs" variant="ghost" onClick={() => emitOutput("status", "done")}>
             Done
           </Button>
         </div>
       </div>
-      <div className="space-y-2">
+      <ul className="divide-y divide-border rounded-md border border-border bg-card">
         {tasks.map((task, index) => {
           const status = getString(task, "status") ?? "open";
           const title = getString(task, "title") ?? `Task ${index + 1}`;
           const taskId = getString(task, "id");
-          const canUpdate = Boolean(node.actions?.updateTask && taskId);
+          const done = status === "done";
+          const isEditing = editingId !== null && taskId === editingId;
+          const due = getString(task, "due");
+          const owner = getString(task, "owner");
+
           return (
-            <WidgetItem
-              key={getString(task, "id") ?? `${title}:${index}`}
+            <li
+              key={taskId ?? `${title}:${index}`}
+              className="group flex items-center gap-2 px-2 py-1.5 text-sm"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    {status === "done" ? (
-                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Circle className="h-4 w-4 text-muted-foreground" />
-                    )}
-                      <div className="break-words text-sm font-medium">{title}</div>
-                  </div>
-                  <WidgetMeta
-                    items={[
-                      status,
-                      getString(task, "owner"),
-                      getString(task, "due")
-                        ? formatDate(getString(task, "due"))
-                        : undefined,
-                    ]}
-                  />
+              <button
+                type="button"
+                aria-label={done ? "Mark as open" : "Mark as done"}
+                disabled={!canUpdate || !taskId}
+                onClick={() =>
+                  taskId &&
+                  void runAction("updateTask", {
+                    task_id: taskId,
+                    status: done ? "open" : "done",
+                  })
+                }
+                className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {done ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+              </button>
+
+              {isEditing ? (
+                <input
+                  autoFocus
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && taskId) {
+                      void runAction("updateTask", { task_id: taskId, title: draftTitle });
+                      setEditingId(null);
+                    } else if (event.key === "Escape") {
+                      setEditingId(null);
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded border border-input bg-background px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className={`min-w-0 truncate ${done ? "text-muted-foreground line-through" : ""}`}>
+                    {title}
+                  </span>
+                  {(owner || due) && (
+                    <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                      {[owner, due ? formatDate(due) : undefined].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  {canUpdate ? (
+              )}
+
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                {isEditing ? (
+                  <>
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={() =>
-                        void runAction("updateTask", {
-                          task_id: taskId,
-                          status: status === "done" ? "open" : "done",
-                        })
-                      }
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Save"
+                      onClick={() => {
+                        if (taskId) {
+                          void runAction("updateTask", { task_id: taskId, title: draftTitle });
+                        }
+                        setEditingId(null);
+                      }}
                     >
-                      {status === "done" ? "Reopen" : "Done"}
+                      <Check className="h-3.5 w-3.5" />
                     </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label={`Send ${title} to connected widgets`}
-                    title="Send this task to connected widgets"
-                    onClick={() => emitOutput("selectedTask", task)}
-                  >
-                    <Send aria-hidden />
-                    Use task
-                  </Button>
-                </div>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Cancel"
+                      onClick={() => setEditingId(null)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {canUpdate && taskId ? (
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Edit task"
+                        onClick={() => {
+                          setEditingId(taskId);
+                          setDraftTitle(title);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Use task"
+                      title="Send to connected widgets"
+                      onClick={() => emitOutput("selectedTask", task)}
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </Button>
+                    {canDelete && taskId ? (
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Delete task"
+                        onClick={() => void runAction("deleteTask", { task_id: taskId })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
+                  </>
+                )}
               </div>
-            </WidgetItem>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

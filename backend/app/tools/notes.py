@@ -112,6 +112,15 @@ capabilities = [
         "output_model": "Note",
         "tags": ["memory", "action"],
     },
+    {
+        "id": "notes.delete",
+        "tool": "notes",
+        "name": "Delete Note",
+        "description": "Delete a note by ID.",
+        "method": "DELETE",
+        "endpoint": "/notes/{note_id}",
+        "tags": ["memory", "action"],
+    },
 ]
 
 
@@ -154,3 +163,9 @@ def append_note(note_id: str, payload: NoteAppend):
     updated = note.model_copy(update={"body": f"{note.body}\n{payload.body}", "updated_at": _now()})
     notes[index] = updated
     return updated
+
+
+@router.delete("/{note_id}", status_code=204)
+def delete_note(note_id: str):
+    index, _ = _find(note_id)
+    del notes[index]

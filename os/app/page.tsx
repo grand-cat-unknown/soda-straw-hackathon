@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  Bug,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
@@ -278,6 +279,9 @@ export default function Home() {
   const [spaces, setSpaces] = useState<ChatSpace[]>(() => [createChatSpace()]);
   const [activeSpaceId, setActiveSpaceId] = useState(() => spaces[0]?.id ?? "");
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [debugWorkspace, setDebugWorkspace] = useState(
+    () => process.env.NEXT_PUBLIC_WORKSPACE_DEBUG === "1",
+  );
   const abortRef = useRef<AbortController | null>(null);
   const activeSpaceIdRef = useRef(activeSpaceId);
   const plannedBridgesRef = useRef<CanvasPlanBridge[]>([]);
@@ -855,29 +859,45 @@ export default function Home() {
                 {activeSpace?.title ?? "New space"}
               </h2>
             </div>
-            {chatCollapsed ? (
+            <div className="flex shrink-0 items-center gap-2">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setChatCollapsed(false)}
+                variant={debugWorkspace ? "outline" : "ghost"}
+                onClick={() => setDebugWorkspace((value) => !value)}
+                aria-pressed={debugWorkspace}
+                title={
+                  debugWorkspace
+                    ? "Hide workspace metadata"
+                    : "Show workspace metadata"
+                }
               >
-                <ChevronRight aria-hidden />
-                Chat
+                <Bug aria-hidden />
+                Debug
               </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setChatCollapsed(true)}
-              >
-                <ChevronLeft aria-hidden />
-                Hide chat
-              </Button>
-            )}
+              {chatCollapsed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setChatCollapsed(false)}
+                >
+                  <ChevronRight aria-hidden />
+                  Chat
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setChatCollapsed(true)}
+                >
+                  <ChevronLeft aria-hidden />
+                  Hide chat
+                </Button>
+              )}
+            </div>
           </header>
 
           <div className="flex-1">
-            <CanvasHost />
+            <CanvasHost debug={debugWorkspace} />
             {!hasResult ? (
               <div className="flex min-h-[55vh] items-center justify-center rounded-md border border-dashed border-border bg-card px-6 text-center">
                 <div className="max-w-md">
@@ -891,7 +911,7 @@ export default function Home() {
             ) : null}
           </div>
 
-          <ToolTrace traces={traces} />
+          {debugWorkspace ? <ToolTrace traces={traces} /> : null}
         </div>
       </section>
     </main>

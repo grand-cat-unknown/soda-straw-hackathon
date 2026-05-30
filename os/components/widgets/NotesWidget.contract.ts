@@ -68,5 +68,9 @@ export const NotesWidgetContract: WidgetContract = {
       capabilityId: "notes.append",
       refreshBindings: ["notes", "note"],
     },
+    deleteNote: {
+      capabilityId: "notes.delete",
+      refreshBindings: ["notes"],
+    },
   },
 };

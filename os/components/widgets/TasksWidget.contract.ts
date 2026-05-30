@@ -76,5 +76,9 @@ export const TasksWidgetContract: WidgetContract = {
       capabilityId: "tasks.create",
       refreshBindings: ["tasks"],
     },
+    deleteTask: {
+      capabilityId: "tasks.delete",
+      refreshBindings: ["tasks"],
+    },
   },
 };

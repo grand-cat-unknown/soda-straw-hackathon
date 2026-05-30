@@ -141,6 +141,24 @@ capabilities = [
         "output_model": "GroupsResponse",
         "tags": ["people"],
     },
+    {
+        "id": "contacts.delete",
+        "tool": "contacts",
+        "name": "Delete Contact",
+        "description": "Delete a contact by ID.",
+        "method": "DELETE",
+        "endpoint": "/contacts/{contact_id}",
+        "tags": ["people", "action"],
+    },
+    {
+        "id": "contacts.delete_group",
+        "tool": "contacts",
+        "name": "Delete Group",
+        "description": "Delete a group by ID.",
+        "method": "DELETE",
+        "endpoint": "/contacts/groups/{group_id}",
+        "tags": ["people", "action"],
+    },
 ]
 
 
@@ -194,3 +212,21 @@ def update_contact(contact_id: str, payload: ContactUpdate):
         contacts[index] = updated
         return updated
     raise HTTPException(status_code=404, detail=f"Contact {contact_id} not found.")
+
+
+@router.delete("/{contact_id}", status_code=204)
+def delete_contact(contact_id: str):
+    for index, contact in enumerate(contacts):
+        if contact.id == contact_id:
+            del contacts[index]
+            return
+    raise HTTPException(status_code=404, detail=f"Contact {contact_id} not found.")
+
+
+@router.delete("/groups/{group_id}", status_code=204)
+def delete_group(group_id: str):
+    for index, group in enumerate(groups):
+        if group.id == group_id:
+            del groups[index]
+            return
+    raise HTTPException(status_code=404, detail=f"Group {group_id} not found.")

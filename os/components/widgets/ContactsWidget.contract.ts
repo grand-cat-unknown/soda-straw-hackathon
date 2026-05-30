@@ -89,5 +89,13 @@ export const ContactsWidgetContract: WidgetContract = {
       capabilityId: "contacts.create_group",
       refreshBindings: ["groups"],
     },
+    deleteContact: {
+      capabilityId: "contacts.delete",
+      refreshBindings: ["contacts"],
+    },
+    deleteGroup: {
+      capabilityId: "contacts.delete_group",
+      refreshBindings: ["groups"],
+    },
   },
 };
