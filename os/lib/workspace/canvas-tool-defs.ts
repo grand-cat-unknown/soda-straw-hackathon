@@ -312,7 +312,7 @@ export const canvasToolDefs: CanvasToolDef[] = [
     type: "function",
     name: "canvas_register_transform",
     description:
-      "Register an on-the-go synchronous JavaScript transform for bridge payloads when no existing transform fits. The generated code receives `value` and `params`; `input` is an alias for `value`. Use a pure expression or a function body with `return`. Do not perform I/O or read browser globals. After registering, call canvas_preview_bridge before canvas_add_bridge.",
+      "Register an on-the-go declarative transform for bridge payloads when no existing transform fits. The source must be a JSON object with one of these operations: pickField, sortByKey, recordsToMarkers, or mapFields. After registering, call canvas_preview_bridge before canvas_add_bridge.",
     parameters: {
       type: "object",
       properties: {
@@ -337,7 +337,7 @@ export const canvasToolDefs: CanvasToolDef[] = [
         source: {
           type: "string",
           description:
-            "Pure JavaScript expression or return-body. Example: `Array.isArray(value) ? value.map((x, i) => ({ id: String(x.id ?? i), lat: Number(x.lat), lng: Number(x.lng), label: String(x.name ?? x.label ?? '') })) : []`.",
+            "JSON transform spec. Examples: `{\"operation\":\"pickField\",\"field\":\"name\"}` or `{\"operation\":\"mapFields\",\"fields\":{\"lat\":\"latitude\",\"lng\":\"longitude\"},\"numericFields\":[\"lat\",\"lng\"]}`.",
         },
         sample_value: {
           type: ["object", "array", "string", "number", "boolean", "null"],

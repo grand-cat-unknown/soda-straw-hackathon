@@ -11,6 +11,17 @@ export type Transform = {
   source?: string;
 };
 
+type GeneratedTransformSpec =
+  | { operation: "pickField"; field: string }
+  | { operation: "sortByKey"; key: string; direction?: "asc" | "desc" }
+  | { operation: "recordsToMarkers" }
+  | {
+      operation: "mapFields";
+      fields: Record<string, string>;
+      numericFields?: string[];
+      array?: boolean;
+    };
+
 export function identity(value: unknown): unknown {
   return value;
 }
@@ -96,33 +107,103 @@ const transforms: Record<string, Transform> = {
   },
 };
 
-const FORBIDDEN_GENERATED_TOKENS = [
-  "document",
-  "window",
-  "globalThis",
-  "Function",
-  "eval",
-  "fetch",
-  "XMLHttpRequest",
-  "import",
-  "localStorage",
-  "sessionStorage",
-  "indexedDB",
-  "navigator",
-  "location",
-  "process",
-  "require",
-];
-
-function assertSafeGeneratedSource(source: string): void {
+function assertGeneratedSpecSize(source: string): void {
   if (source.length > 4000) {
-    throw new Error("Generated transform source is too long.");
+    throw new Error("Generated transform spec is too long.");
+  }
+}
+
+function readGeneratedTransformSpec(source: string): GeneratedTransformSpec {
+  assertGeneratedSpecSize(source);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    throw new Error("Generated transform source must be a JSON transform spec.");
   }
 
-  for (const token of FORBIDDEN_GENERATED_TOKENS) {
-    const pattern = new RegExp(`\\b${token}\\b`);
-    if (pattern.test(source)) {
-      throw new Error(`Generated transform cannot reference ${token}.`);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Generated transform spec must be an object.");
+  }
+
+  const spec = parsed as Record<string, unknown>;
+  switch (spec.operation) {
+    case "pickField":
+      if (typeof spec.field !== "string" || !spec.field) {
+        throw new Error("pickField requires a field.");
+      }
+      return { operation: "pickField", field: spec.field };
+    case "sortByKey":
+      if (typeof spec.key !== "string" || !spec.key) {
+        throw new Error("sortByKey requires a key.");
+      }
+      return {
+        operation: "sortByKey",
+        key: spec.key,
+        direction: spec.direction === "desc" ? "desc" : "asc",
+      };
+    case "recordsToMarkers":
+      return { operation: "recordsToMarkers" };
+    case "mapFields":
+      if (!spec.fields || typeof spec.fields !== "object" || Array.isArray(spec.fields)) {
+        throw new Error("mapFields requires a fields object.");
+      }
+      for (const [target, sourceField] of Object.entries(spec.fields)) {
+        if (!target || typeof sourceField !== "string" || !sourceField) {
+          throw new Error("mapFields entries must map target fields to source fields.");
+        }
+      }
+      return {
+        operation: "mapFields",
+        fields: spec.fields as Record<string, string>,
+        numericFields: Array.isArray(spec.numericFields)
+          ? spec.numericFields.filter((field): field is string => typeof field === "string")
+          : undefined,
+        array: spec.array !== false,
+      };
+    default:
+      throw new Error("Unsupported generated transform operation.");
+  }
+}
+
+function mapRecordFields(
+  record: unknown,
+  fields: Record<string, string>,
+  numericFields: Set<string>,
+): unknown {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return {};
+  const source = record as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(fields).map(([target, sourceField]) => {
+      const value = source[sourceField];
+      return [target, numericFields.has(target) ? Number(value) : value];
+    }),
+  );
+}
+
+function applyGeneratedSpec(
+  spec: GeneratedTransformSpec,
+  value: unknown,
+  params?: Record<string, unknown>,
+): unknown {
+  switch (spec.operation) {
+    case "pickField":
+      return pickField(value, { field: spec.field, ...params });
+    case "sortByKey":
+      return sortByKey(value, {
+        key: spec.key,
+        direction: spec.direction,
+        ...params,
+      });
+    case "recordsToMarkers":
+      return recordsToMarkers(value);
+    case "mapFields": {
+      const numericFields = new Set(spec.numericFields ?? []);
+      if (spec.array) {
+        if (!Array.isArray(value)) return [];
+        return value.map((record) => mapRecordFields(record, spec.fields, numericFields));
+      }
+      return mapRecordFields(value, spec.fields, numericFields);
     }
   }
 }
@@ -144,15 +225,8 @@ export function createGeneratedTransform({
   if (!/^[a-zA-Z0-9:_-]+$/.test(id)) {
     throw new Error("Transform id may only contain letters, numbers, ':', '_' and '-'.");
   }
-  if (!trimmed) throw new Error("Generated transform source is required.");
-  assertSafeGeneratedSource(trimmed);
-
-  const body = trimmed.startsWith("return") ? trimmed : `return (${trimmed});`;
-  const fn = new Function(
-    "value",
-    "params",
-    `"use strict"; const input = value; ${body}`,
-  ) as (value: unknown, params?: Record<string, unknown>) => unknown;
+  if (!trimmed) throw new Error("Generated transform spec is required.");
+  const spec = readGeneratedTransformSpec(trimmed);
 
   return {
     id,
@@ -162,7 +236,7 @@ export function createGeneratedTransform({
     generated: true,
     source: trimmed,
     apply(value, params) {
-      return fn(value, params);
+      return applyGeneratedSpec(spec, value, params);
     },
   };
 }

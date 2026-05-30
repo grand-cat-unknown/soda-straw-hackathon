@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import sys
@@ -23,6 +24,9 @@ DEFAULT_SODA_STRAW_URL = "https://srikanthganta.straw.demo.soda.io"
 DEFAULT_PUBLIC_URL = "https://uncombed-wand-unfitted.ngrok-free.dev"
 DEFAULT_BACKEND_API_KEY = "fluid-os-dev-key"
 DEFAULT_STRAW_PREFIX = "fluid-os-"
+ALLOWED_URL_SCHEMES = {"https"}
+BLOCKED_HOSTS = {"localhost", "localhost.localdomain"}
+BLOCKED_HOST_SUFFIXES = (".localhost", ".local", ".internal")
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,46 @@ def env_bool(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def validate_public_base_url(name: str, raw_url: str) -> str:
+    url = raw_url.strip().rstrip("/")
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in ALLOWED_URL_SCHEMES:
+        raise ValueError(f"{name} must be an absolute HTTPS URL.")
+    if not parsed.hostname:
+        raise ValueError(f"{name} must include a host.")
+    if parsed.username or parsed.password:
+        raise ValueError(f"{name} must not include credentials.")
+    host = parsed.hostname.lower().rstrip(".")
+    if host in BLOCKED_HOSTS or host.endswith(BLOCKED_HOST_SUFFIXES):
+        raise ValueError(f"{name} must not point to a local host.")
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        if not address.is_global:
+            raise ValueError(f"{name} must point to a public address.")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{name} must not include a query string or fragment.")
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
+
+def validate_api_path(name: str, value: Any) -> str:
+    if not isinstance(value, str) or not value.startswith("/"):
+        raise ValueError(f"{name} must be an absolute path.")
+    parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        raise ValueError(f"{name} must not include a scheme, host, query, or fragment.")
+    parts = [part for part in parsed.path.split("/") if part]
+    if any(part in {".", ".."} for part in parts):
+        raise ValueError(f"{name} must not contain path traversal.")
+    return parsed.path
+
+
+def join_url(base_url: str, path: str) -> str:
+    return f"{base_url}{validate_api_path('path', path)}"
+
+
 def load_config() -> Config:
     api_key = os.getenv("SODA_STRAW_API_KEY", "").strip()
     if not api_key:
@@ -50,11 +94,14 @@ def load_config() -> Config:
         sys.exit(2)
 
     return Config(
-        soda_straw_url=os.getenv("SODA_STRAW_URL", DEFAULT_SODA_STRAW_URL).rstrip("/"),
+        soda_straw_url=validate_public_base_url(
+            "SODA_STRAW_URL", os.getenv("SODA_STRAW_URL", DEFAULT_SODA_STRAW_URL)
+        ),
         soda_straw_api_key=api_key,
-        public_url=os.getenv(
-            "FLUID_OS_PUBLIC_URL", os.getenv("NGROK_URL", DEFAULT_PUBLIC_URL)
-        ).rstrip("/"),
+        public_url=validate_public_base_url(
+            "FLUID_OS_PUBLIC_URL",
+            os.getenv("FLUID_OS_PUBLIC_URL", os.getenv("NGROK_URL", DEFAULT_PUBLIC_URL)),
+        ),
         backend_api_key=os.getenv("FLUID_OS_API_KEY", DEFAULT_BACKEND_API_KEY),
         straw_prefix=os.getenv("SODA_STRAW_STRAW_PREFIX", DEFAULT_STRAW_PREFIX),
         delete_all=env_bool("SODA_STRAW_DELETE_ALL"),
@@ -100,7 +147,7 @@ def soda_headers(config: Config) -> dict[str, str]:
 def fetch_backend_tools(config: Config) -> tuple[str, list[dict[str, Any]]]:
     data = request_json(
         "GET",
-        f"{config.public_url}/tools",
+        join_url(config.public_url, "/tools"),
         headers={"X-API-Key": config.backend_api_key},
     )
     tools = data.get("tools", [])
@@ -113,7 +160,7 @@ def fetch_backend_tools(config: Config) -> tuple[str, list[dict[str, Any]]]:
 def list_straws(config: Config) -> list[dict[str, Any]]:
     data = request_json(
         "GET",
-        f"{config.soda_straw_url}/api/straws",
+        join_url(config.soda_straw_url, "/api/straws"),
         headers=soda_headers(config),
     )
     if isinstance(data, list):
@@ -148,7 +195,7 @@ def delete_straw(config: Config, straw: dict[str, Any]) -> None:
     try:
         request_json(
             "DELETE",
-            f"{config.soda_straw_url}/api/straws/{urllib.parse.quote(sid)}",
+            join_url(config.soda_straw_url, f"/api/straws/{urllib.parse.quote(sid)}"),
             headers=soda_headers(config),
         )
     except RuntimeError as exc:
@@ -165,18 +212,18 @@ def create_straw(
     backend_api_key_header: str,
 ) -> str:
     tool_name = tool["name"]
-    base_url_path = tool["base_url_path"]
-    openapi_path = tool["openapi_path"]
+    base_url_path = validate_api_path("base_url_path", tool.get("base_url_path"))
+    openapi_path = validate_api_path("openapi_path", tool.get("openapi_path"))
     name = f"{config.straw_prefix}{tool_name}"
     body = {
         "type": "api",
         "name": name,
         "description": f"Fluid OS mock {tool_name} API exposed through the static ngrok backend.",
-        "server_url": f"{config.public_url}{base_url_path}",
+        "server_url": join_url(config.public_url, base_url_path),
         "auth_method": "custom_header",
         "custom_header_name": backend_api_key_header,
         "custom_header_value": config.backend_api_key,
-        "openapi_spec_url": f"{config.public_url}{openapi_path}",
+        "openapi_spec_url": join_url(config.public_url, openapi_path),
     }
 
     print(f"Creating {name}")
@@ -185,7 +232,7 @@ def create_straw(
 
     response = request_json(
         "POST",
-        f"{config.soda_straw_url}/api/straws",
+        join_url(config.soda_straw_url, "/api/straws"),
         headers=soda_headers(config),
         body=body,
     )
@@ -195,7 +242,10 @@ def create_straw(
 
     request_json(
         "POST",
-        f"{config.soda_straw_url}/api/straws/{urllib.parse.quote(sid)}/refresh-tools",
+        join_url(
+            config.soda_straw_url,
+            f"/api/straws/{urllib.parse.quote(sid)}/refresh-tools",
+        ),
         headers=soda_headers(config),
     )
     return sid
