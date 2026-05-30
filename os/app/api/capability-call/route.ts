@@ -14,17 +14,51 @@ function backendBase(): string {
   ).replace(/\/$/, "");
 }
 
-function backendApiKey(): string {
+function backendApiKey(): string | null {
   return (
     process.env.FLUID_OS_API_KEY ??
     process.env.NEXT_PUBLIC_BACKEND_API_KEY ??
-    "fluid-os-dev-key"
+    null
   );
 }
 
+/**
+ * Validates the request authentication for accessing backend capabilities.
+ * Returns true if the request is authenticated or if capabilities are explicitly
+ * allowed for unauthenticated requests via ALLOW_UNAUTHENTICATED_CAPABILITIES.
+ */
+function isRequestAuthenticated(request: Request): boolean {
+  // Check for API key in Authorization header
+  const authHeader = request.headers.get("Authorization");
+  const expectedApiKey = process.env.FLUID_OS_CAPABILITY_API_KEY;
+  
+  if (expectedApiKey) {
+    // If an API key is configured, require it
+    if (!authHeader) return false;
+    
+    // Support both "Bearer <key>" and direct key formats
+    const providedKey = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
+    
+    return providedKey === expectedApiKey;
+  }
+  
+  // If no API key is configured, check if unauthenticated access is explicitly allowed
+  // This maintains backward compatibility for development environments
+  return process.env.ALLOW_UNAUTHENTICATED_CAPABILITIES === "true";
+}
+
 async function fetchCapabilities(): Promise<Capability[]> {
+  const apiKey = backendApiKey();
+  if (!apiKey) {
+    throw new Error(
+      "Backend API key is not configured. Set FLUID_OS_API_KEY or NEXT_PUBLIC_BACKEND_API_KEY environment variable."
+    );
+  }
+  
   const response = await fetch(`${backendBase()}/capabilities`, {
-    headers: { "X-API-Key": backendApiKey() },
+    headers: { "X-API-Key": apiKey },
     cache: "no-store",
   });
   if (!response.ok) {
@@ -65,6 +99,18 @@ function queryString(params: Record<string, unknown>): string {
 
 export async function POST(request: Request) {
   try {
+    // Validate authentication before processing the request
+    const isAuthenticated = isRequestAuthenticated(request);
+    if (!isAuthenticated) {
+      console.warn("[capability-call] unauthenticated request rejected");
+      return Response.json(
+        { 
+          error: "Authentication required. Set FLUID_OS_CAPABILITY_API_KEY and include Authorization header, or set ALLOW_UNAUTHENTICATED_CAPABILITIES=true for development." 
+        },
+        { status: 401 }
+      );
+    }
+
     const body = (await request.json()) as {
       capabilityId?: unknown;
       params?: unknown;
@@ -88,6 +134,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const apiKey = backendApiKey();
+    if (!apiKey) {
+      throw new Error(
+        "Backend API key is not configured. Set FLUID_OS_API_KEY or NEXT_PUBLIC_BACKEND_API_KEY environment variable."
+      );
+    }
+
     const method = capability.method.toUpperCase();
     const { path, rest } = compileEndpoint(capability.endpoint, params);
     const url =
@@ -100,7 +153,7 @@ export async function POST(request: Request) {
       method,
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": backendApiKey(),
+        "X-API-Key": apiKey,
       },
       body: method === "GET" || method === "DELETE" ? undefined : JSON.stringify(rest),
       cache: "no-store",
