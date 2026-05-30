@@ -18,13 +18,42 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function optionalMcpTools(): Tool[] {
+/**
+ * Validates the request authentication for accessing MCP tools.
+ * Returns true if the request is authenticated or if MCP tools are explicitly
+ * allowed for unauthenticated requests via ALLOW_UNAUTHENTICATED_MCP_TOOLS.
+ */
+function isRequestAuthenticated(request: Request): boolean {
+  // Check for API key in Authorization header
+  const authHeader = request.headers.get("Authorization");
+  const expectedApiKey = process.env.FLUID_OS_CHAT_API_KEY;
+  
+  if (expectedApiKey) {
+    // If an API key is configured, require it
+    if (!authHeader) return false;
+    
+    // Support both "Bearer <key>" and direct key formats
+    const providedKey = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
+    
+    return providedKey === expectedApiKey;
+  }
+  
+  // If no API key is configured, check if unauthenticated access is explicitly allowed
+  // This maintains backward compatibility for development environments
+  return process.env.ALLOW_UNAUTHENTICATED_MCP_TOOLS === "true";
+}
+
+function optionalMcpTools(isAuthenticated: boolean): Tool[] {
   const tools: Tool[] = [];
 
   const sodaStrawApiKey =
     process.env.SODA_STRAW_AGENT_API_KEY ?? process.env.SODA_STRAW_API_KEY;
 
-  if (process.env.SODA_STRAW_MCP_URL && sodaStrawApiKey) {
+  // Only add MCP tools if the request is authenticated
+  // This prevents unauthorized access to authenticated backend services
+  if (isAuthenticated && process.env.SODA_STRAW_MCP_URL && sodaStrawApiKey) {
     tools.push({
       type: "mcp",
       server_label: "soda_straw",
@@ -39,8 +68,8 @@ function optionalMcpTools(): Tool[] {
   return tools;
 }
 
-function allTools(): Tool[] {
-  const tools = optionalMcpTools();
+function allTools(isAuthenticated: boolean): Tool[] {
+  const tools = optionalMcpTools(isAuthenticated);
   for (const def of canvasToolDefs) {
     tools.push(def as unknown as Tool);
   }
@@ -217,6 +246,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Validate authentication for MCP tool access
+  const isAuthenticated = isRequestAuthenticated(request);
+
   const body = (await request.json()) as ChatRequestBody;
   const continuation = isContinuation(body);
 
@@ -227,7 +259,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const tools = allTools();
+  const tools = allTools(isAuthenticated);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
