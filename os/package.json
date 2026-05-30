@@ -15,6 +15,7 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "lucide-react": "latest",
+    "mapbox-gl": "^3.24.0",
     "next": "latest",
     "openai": "latest",
     "react": "latest",

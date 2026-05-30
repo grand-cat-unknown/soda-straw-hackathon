@@ -145,11 +145,17 @@ def delete_straw(config: Config, straw: dict[str, Any]) -> None:
     print(f"Deleting {name or sid}")
     if config.dry_run:
         return
-    request_json(
-        "DELETE",
-        f"{config.soda_straw_url}/api/straws/{urllib.parse.quote(sid)}",
-        headers=soda_headers(config),
-    )
+    try:
+        request_json(
+            "DELETE",
+            f"{config.soda_straw_url}/api/straws/{urllib.parse.quote(sid)}",
+            headers=soda_headers(config),
+        )
+    except RuntimeError as exc:
+        if "system_straw_locked" in str(exc) or "HTTP 403" in str(exc):
+            print(f"  skipped {name or sid}: system-managed straw")
+            return
+        raise
 
 
 def create_straw(
@@ -207,10 +213,21 @@ def main() -> int:
 
     backend_api_key_header, tools = fetch_backend_tools(config)
     existing = list_straws(config)
+    def is_system_managed(straw: dict[str, Any]) -> bool:
+        name = straw_name(straw).lower()
+        if name.startswith("loop "):
+            return True
+        for key in ("managed_by", "source", "owner"):
+            value = straw.get(key)
+            if isinstance(value, str) and value.lower() in {"system", "soda_straw", "soda-straw"}:
+                return True
+        return False
+
     to_delete = [
         straw
         for straw in existing
-        if config.delete_all or straw_name(straw).startswith(config.straw_prefix)
+        if (config.delete_all or straw_name(straw).startswith(config.straw_prefix))
+        and not is_system_managed(straw)
     ]
 
     for straw in to_delete:

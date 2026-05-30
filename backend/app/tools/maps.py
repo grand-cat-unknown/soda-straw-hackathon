@@ -1,11 +1,26 @@
-import math
+import os
 from typing import Any
+from urllib.parse import quote
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 tool_name = "maps"
 router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
+
+MAPBOX_GEOCODE_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
+MAPBOX_DIRECTIONS_URL = "https://api.mapbox.com/directions/v5/mapbox/{profile}/{coords}"
+
+_MODE_TO_PROFILE = {
+    "walk": "walking",
+    "walking": "walking",
+    "bike": "cycling",
+    "cycling": "cycling",
+    "drive": "driving",
+    "driving": "driving",
+    "transit": "driving",  # Mapbox has no public transit profile; fall back to driving
+}
 
 
 class Place(BaseModel):
@@ -14,69 +29,82 @@ class Place(BaseModel):
     address: str
     lat: float
     lng: float
-    city: str
+    city: str | None = None
     neighborhood: str | None = None
     tags: list[str] = Field(default_factory=list)
 
 
+class GeocodeRequest(BaseModel):
+    query: str
+    proximity: list[float] | None = None  # [lng, lat]
+    country: str | None = None
+    limit: int = 5
+
+
 class PlaceSearchRequest(BaseModel):
     query: str
-    near: str | None = None
-    filters: dict[str, Any] | None = None
+    near: str | None = None  # freeform place name; resolved to proximity
+    proximity: list[float] | None = None  # [lng, lat] — wins over `near`
+    country: str | None = None
+    limit: int = 8
 
 
 class PlacesResponse(BaseModel):
     places: list[Place]
 
 
+class DirectionsRequest(BaseModel):
+    origin: list[float] | str  # [lng, lat] or freeform address
+    destination: list[float] | str
+    mode: str = "drive"  # walk | bike | drive | transit
+    geometries: str = "geojson"  # "geojson" | "polyline"
+
+
+class RouteStep(BaseModel):
+    distance_km: float
+    duration_minutes: float
+    instruction: str | None = None
+
+
+class DirectionsResponse(BaseModel):
+    mode: str
+    profile: str
+    distance_km: float
+    duration_minutes: float
+    geometry: dict[str, Any] | str  # GeoJSON LineString or encoded polyline
+    steps: list[RouteStep] = Field(default_factory=list)
+
+
 class TravelTimeRequest(BaseModel):
-    origin: str  # place_id or freeform
-    destination: str
-    mode: str  # walk | bike | drive | transit
-    departure_time: str | None = None
+    origin: list[float] | str
+    destination: list[float] | str
+    mode: str = "drive"
 
 
 class TravelTimeResponse(BaseModel):
     duration_minutes: float
     distance_km: float
     mode: str
-
-
-class ClusterRequest(BaseModel):
-    place_ids: list[str]
-    constraints: dict[str, Any] | None = None
-
-
-class Cluster(BaseModel):
-    key: str
-    place_ids: list[str]
-
-
-class ClusterResponse(BaseModel):
-    clusters: list[Cluster]
-
-
-places: list[Place] = [
-    Place(id="place_001", name="Café Belga", address="Place Eugène Flagey 18", lat=50.8276, lng=4.3717, city="Brussels", neighborhood="Ixelles", tags=["cafe", "drinks"]),
-    Place(id="place_002", name="Brasserie Surrealiste", address="Rue de Flandre 80", lat=50.8530, lng=4.3450, city="Brussels", neighborhood="Sainte-Catherine", tags=["restaurant", "dinner"]),
-    Place(id="place_003", name="Bar du Matin", address="Chaussée d'Alsemberg 172", lat=50.8240, lng=4.3450, city="Brussels", neighborhood="Saint-Gilles", tags=["bar", "drinks"]),
-    Place(id="place_004", name="Parc du Cinquantenaire", address="Av. de l'Yser 7", lat=50.8403, lng=4.3920, city="Brussels", neighborhood="Etterbeek", tags=["park", "outdoor"]),
-    Place(id="place_005", name="Vrijdagmarkt", address="Vrijdagmarkt 1", lat=51.0570, lng=3.7270, city="Ghent", neighborhood="Centrum", tags=["square", "outdoor"]),
-    Place(id="place_006", name="DOK Gent", address="Oktrooiplein", lat=51.0660, lng=3.7400, city="Ghent", neighborhood="Dampoort", tags=["bar", "outdoor"]),
-    Place(id="place_007", name="Grote Markt Antwerpen", address="Grote Markt", lat=51.2210, lng=4.3990, city="Antwerp", neighborhood="Oude Stad", tags=["square"]),
-    Place(id="place_008", name="Café d'Anvers", address="Verversrui 15", lat=51.2255, lng=4.4020, city="Antwerp", neighborhood="Oude Stad", tags=["club", "drinks"]),
-]
-
-
-_MODE_KMH = {"walk": 5.0, "bike": 15.0, "drive": 30.0, "transit": 20.0}
+    profile: str
 
 
 capabilities = [
     {
+        "id": "maps.geocode",
+        "tool": "maps",
+        "name": "Geocode Address",
+        "description": "Resolve a freeform address or place name to lat/lng using Mapbox.",
+        "method": "POST",
+        "endpoint": "/maps/geocode",
+        "input_model": "GeocodeRequest",
+        "output_model": "PlacesResponse",
+        "tags": ["places", "geocoding"],
+    },
+    {
         "id": "maps.search_places",
         "tool": "maps",
         "name": "Search Places",
-        "description": "Search saved places by query, city, or tag.",
+        "description": "Search real-world places via Mapbox Geocoding with optional proximity bias.",
         "method": "POST",
         "endpoint": "/maps/places/search",
         "input_model": "PlaceSearchRequest",
@@ -84,96 +112,214 @@ capabilities = [
         "tags": ["places", "discovery"],
     },
     {
-        "id": "maps.get_place",
+        "id": "maps.directions",
         "tool": "maps",
-        "name": "Get Place",
-        "description": "Fetch a single place by ID.",
-        "method": "GET",
-        "endpoint": "/maps/places/{place_id}",
-        "output_model": "Place",
-        "tags": ["places"],
+        "name": "Directions",
+        "description": "Real walking/cycling/driving route between two points. Returns GeoJSON geometry the map widget can render directly.",
+        "method": "POST",
+        "endpoint": "/maps/directions",
+        "input_model": "DirectionsRequest",
+        "output_model": "DirectionsResponse",
+        "tags": ["places", "planning", "routing"],
     },
     {
         "id": "maps.estimate_travel_time",
         "tool": "maps",
         "name": "Estimate Travel Time",
-        "description": "Estimate distance and duration between two places.",
+        "description": "Estimate distance and duration between two points using Mapbox Directions.",
         "method": "POST",
         "endpoint": "/maps/travel-time",
         "input_model": "TravelTimeRequest",
         "output_model": "TravelTimeResponse",
         "tags": ["places", "planning"],
     },
-    {
-        "id": "maps.cluster_places",
-        "tool": "maps",
-        "name": "Cluster Places",
-        "description": "Cluster a set of places by neighborhood.",
-        "method": "POST",
-        "endpoint": "/maps/cluster",
-        "input_model": "ClusterRequest",
-        "output_model": "ClusterResponse",
-        "tags": ["places", "planning"],
-    },
 ]
 
 
-def _find_place(place_id: str) -> Place:
-    for place in places:
-        if place.id == place_id:
-            return place
-    raise HTTPException(status_code=404, detail=f"Place {place_id} not found.")
+def _mapbox_token() -> str:
+    token = os.getenv("MAPBOX_TOKEN")
+    if not token:
+        raise HTTPException(status_code=503, detail="MAPBOX_TOKEN is not configured on the server.")
+    return token
 
 
-def _haversine_km(a: Place, b: Place) -> float:
-    r = 6371.0
-    lat1, lat2 = math.radians(a.lat), math.radians(b.lat)
-    dlat = lat2 - lat1
-    dlng = math.radians(b.lng - a.lng)
-    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(h))
+def _mode_to_profile(mode: str) -> str:
+    profile = _MODE_TO_PROFILE.get(mode.lower())
+    if not profile:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported mode {mode}. Use walk|bike|drive|transit.",
+        )
+    return profile
+
+
+def _coord(point: list[float] | str, *, token: str) -> tuple[float, float]:
+    """Normalize a coordinate input to (lng, lat). Geocodes if a string is passed."""
+    if isinstance(point, list):
+        if len(point) != 2:
+            raise HTTPException(status_code=400, detail="Coordinate must be [lng, lat].")
+        return float(point[0]), float(point[1])
+
+    features = _geocode(point, token=token, limit=1)
+    if not features:
+        raise HTTPException(status_code=404, detail=f"Could not geocode '{point}'.")
+    place = features[0]
+    return place.lng, place.lat
+
+
+def _feature_to_place(feature: dict[str, Any]) -> Place:
+    coords = feature.get("center") or [0.0, 0.0]
+    context = {ctx.get("id", "").split(".")[0]: ctx.get("text") for ctx in feature.get("context", [])}
+    return Place(
+        id=feature.get("id", ""),
+        name=feature.get("text") or feature.get("place_name", ""),
+        address=feature.get("place_name", ""),
+        lat=float(coords[1]),
+        lng=float(coords[0]),
+        city=context.get("place") or context.get("locality"),
+        neighborhood=context.get("neighborhood"),
+        tags=list(feature.get("place_type", [])),
+    )
+
+
+def _geocode(
+    query: str,
+    *,
+    token: str,
+    proximity: list[float] | None = None,
+    country: str | None = None,
+    limit: int = 5,
+) -> list[Place]:
+    params: dict[str, Any] = {
+        "access_token": token,
+        "limit": max(1, min(limit, 10)),
+    }
+    if proximity and len(proximity) == 2:
+        params["proximity"] = f"{proximity[0]},{proximity[1]}"
+    if country:
+        params["country"] = country
+
+    url = MAPBOX_GEOCODE_URL.format(query=quote(query, safe=""))
+    try:
+        response = httpx.get(url, params=params, timeout=15.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Mapbox geocoding failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Mapbox returned {response.status_code}: {response.text[:300]}",
+        )
+
+    data = response.json()
+    return [_feature_to_place(feat) for feat in data.get("features", [])]
+
+
+@router.post("/geocode", response_model=PlacesResponse)
+def geocode(payload: GeocodeRequest):
+    token = _mapbox_token()
+    results = _geocode(
+        payload.query,
+        token=token,
+        proximity=payload.proximity,
+        country=payload.country,
+        limit=payload.limit,
+    )
+    return PlacesResponse(places=results)
 
 
 @router.post("/places/search", response_model=PlacesResponse)
 def search_places(payload: PlaceSearchRequest):
-    q = payload.query.lower()
-    matches = [
-        place
-        for place in places
-        if q in " ".join([place.name, place.address, place.city, place.neighborhood or "", *place.tags]).lower()
-    ]
-    if payload.near:
-        near = payload.near.lower()
-        matches = [p for p in matches if near in p.city.lower() or near in (p.neighborhood or "").lower()]
-    return PlacesResponse(places=matches)
+    token = _mapbox_token()
+    proximity = payload.proximity
+    if not proximity and payload.near:
+        near_hits = _geocode(payload.near, token=token, limit=1)
+        if near_hits:
+            proximity = [near_hits[0].lng, near_hits[0].lat]
+
+    results = _geocode(
+        payload.query,
+        token=token,
+        proximity=proximity,
+        country=payload.country,
+        limit=payload.limit,
+    )
+    return PlacesResponse(places=results)
 
 
-@router.get("/places/{place_id}", response_model=Place)
-def get_place(place_id: str):
-    return _find_place(place_id)
+def _directions(
+    origin: list[float] | str,
+    destination: list[float] | str,
+    mode: str,
+    geometries: str,
+) -> dict[str, Any]:
+    token = _mapbox_token()
+    profile = _mode_to_profile(mode)
+
+    o_lng, o_lat = _coord(origin, token=token)
+    d_lng, d_lat = _coord(destination, token=token)
+
+    coords = f"{o_lng},{o_lat};{d_lng},{d_lat}"
+    url = MAPBOX_DIRECTIONS_URL.format(profile=profile, coords=coords)
+    params = {
+        "access_token": token,
+        "geometries": geometries,
+        "overview": "full",
+        "steps": "true",
+    }
+
+    try:
+        response = httpx.get(url, params=params, timeout=20.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Mapbox directions failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Mapbox returned {response.status_code}: {response.text[:300]}",
+        )
+
+    data = response.json()
+    routes = data.get("routes") or []
+    if not routes:
+        raise HTTPException(status_code=404, detail="No route found between those points.")
+
+    route = routes[0]
+    return {"route": route, "profile": profile}
+
+
+@router.post("/directions", response_model=DirectionsResponse)
+def directions(payload: DirectionsRequest):
+    result = _directions(payload.origin, payload.destination, payload.mode, payload.geometries)
+    route = result["route"]
+    steps: list[RouteStep] = []
+    for leg in route.get("legs", []):
+        for step in leg.get("steps", []):
+            steps.append(
+                RouteStep(
+                    distance_km=round(step.get("distance", 0) / 1000.0, 3),
+                    duration_minutes=round(step.get("duration", 0) / 60.0, 2),
+                    instruction=(step.get("maneuver") or {}).get("instruction"),
+                )
+            )
+
+    return DirectionsResponse(
+        mode=payload.mode,
+        profile=result["profile"],
+        distance_km=round(route.get("distance", 0) / 1000.0, 3),
+        duration_minutes=round(route.get("duration", 0) / 60.0, 2),
+        geometry=route.get("geometry"),
+        steps=steps,
+    )
 
 
 @router.post("/travel-time", response_model=TravelTimeResponse)
 def estimate_travel_time(payload: TravelTimeRequest):
-    if payload.mode not in _MODE_KMH:
-        raise HTTPException(status_code=400, detail=f"Unsupported mode {payload.mode}. Use walk|bike|drive|transit.")
-
-    origin = _find_place(payload.origin) if payload.origin.startswith("place_") else places[0]
-    dest = _find_place(payload.destination) if payload.destination.startswith("place_") else places[-1]
-    distance = _haversine_km(origin, dest)
-    duration = (distance / _MODE_KMH[payload.mode]) * 60.0
+    result = _directions(payload.origin, payload.destination, payload.mode, "geojson")
+    route = result["route"]
     return TravelTimeResponse(
-        duration_minutes=round(duration, 1),
-        distance_km=round(distance, 2),
+        duration_minutes=round(route.get("duration", 0) / 60.0, 2),
+        distance_km=round(route.get("distance", 0) / 1000.0, 3),
         mode=payload.mode,
+        profile=result["profile"],
     )
-
-
-@router.post("/cluster", response_model=ClusterResponse)
-def cluster_places(payload: ClusterRequest):
-    buckets: dict[str, list[str]] = {}
-    for place_id in payload.place_ids:
-        place = _find_place(place_id)
-        key = place.neighborhood or place.city
-        buckets.setdefault(key, []).append(place_id)
-    return ClusterResponse(clusters=[Cluster(key=key, place_ids=ids) for key, ids in buckets.items()])

@@ -1,5 +1,8 @@
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv()
 
 from app.auth import API_KEY_HEADER, DEFAULT_API_KEY, verify_api_key
 from app.tools import tool_modules
