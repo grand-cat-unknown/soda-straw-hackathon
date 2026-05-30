@@ -10,6 +10,8 @@ deterministic widgets, wiring them together on the fly for the current task.
 
 Read the deeper project framing in [`os/README.md`](os/README.md).
 
+For a concise product pitch, read [`pitch.md`](pitch.md).
+
 ## Repo Structure
 
 ```txt
