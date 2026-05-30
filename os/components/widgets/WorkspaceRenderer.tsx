@@ -22,6 +22,7 @@ import {
   widgetRegistry,
 } from "@/lib/workspace";
 import type {
+  Bridge,
   CanvasLayout,
   TileSize,
   WidgetInput,
@@ -33,9 +34,10 @@ import {
   widgetRenderers,
 } from "@/components/widgets/widget-renderers";
 
-// Tile grid: 6 columns, ~200px row height. Agent picks a TileSize + (col,row).
+// Tile grid: 6 columns, ~240px row height. Agent picks a TileSize + (col,row).
 // If two tiles collide, the later one is bumped via first-fit packing.
-const CELL_HEIGHT_PX = 200;
+const CELL_HEIGHT_PX = 240;
+const SVG_COL_WIDTH = 100;
 
 type Cell = { col: number; row: number; cols: number; rows: number };
 
@@ -115,18 +117,23 @@ export function WorkspaceRenderer() {
 
   return (
     <div
-      className="grid gap-4 w-full"
+      className="relative grid w-full gap-5"
       style={{
         gridTemplateColumns: `repeat(${CANVAS_COLS}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${maxRow}, ${CELL_HEIGHT_PX}px)`,
       }}
     >
+      <BridgeOverlay
+        edges={Object.values(canvas.edges)}
+        placements={placements}
+        maxRow={maxRow}
+      />
       {nodes.map((node) => {
         const p = placements[node.id];
         return (
           <div
             key={node.id}
-            className="min-w-0 transition-all duration-300 ease-out"
+            className="relative z-10 min-w-0 transition-all duration-300 ease-out"
             style={{
               gridColumn: `${p.col + 1} / span ${p.cols}`,
               gridRow: `${p.row + 1} / span ${p.rows}`,
@@ -145,6 +152,93 @@ export function WorkspaceRenderer() {
         );
       })}
     </div>
+  );
+}
+
+function BridgeOverlay({
+  edges,
+  placements,
+  maxRow,
+}: {
+  edges: Bridge[];
+  placements: Record<string, Cell>;
+  maxRow: number;
+}) {
+  const visibleEdges = edges
+    .map((edge) => {
+      const from = placements[edge.from.nodeId];
+      const to = placements[edge.to.nodeId];
+      if (!from || !to) return null;
+
+      const fromCenterX = (from.col + from.cols / 2) * SVG_COL_WIDTH;
+      const toCenterX = (to.col + to.cols / 2) * SVG_COL_WIDTH;
+      const leftToRight = fromCenterX <= toCenterX;
+      const startX = (from.col + (leftToRight ? from.cols : 0)) * SVG_COL_WIDTH;
+      const endX = (to.col + (leftToRight ? 0 : to.cols)) * SVG_COL_WIDTH;
+      const startY = (from.row + from.rows / 2) * CELL_HEIGHT_PX;
+      const endY = (to.row + to.rows / 2) * CELL_HEIGHT_PX;
+      const controlOffset = Math.max(60, Math.abs(endX - startX) * 0.35);
+      const controlDirection = leftToRight ? 1 : -1;
+      const path = [
+        `M ${startX} ${startY}`,
+        `C ${startX + controlOffset * controlDirection} ${startY}`,
+        `${endX - controlOffset * controlDirection} ${endY}`,
+        `${endX} ${endY}`,
+      ].join(" ");
+
+      return {
+        edge,
+        path,
+        labelX: (startX + endX) / 2,
+        labelY: (startY + endY) / 2,
+      };
+    })
+    .filter((edge): edge is NonNullable<typeof edge> => edge !== null);
+
+  if (visibleEdges.length === 0) return null;
+
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-0 overflow-visible"
+      preserveAspectRatio="none"
+      viewBox={`0 0 ${CANVAS_COLS * SVG_COL_WIDTH} ${maxRow * CELL_HEIGHT_PX}`}
+    >
+      <defs>
+        <marker
+          id="bridge-arrow"
+          markerHeight="8"
+          markerWidth="8"
+          orient="auto"
+          refX="7"
+          refY="4"
+          viewBox="0 0 8 8"
+        >
+          <path d="M 0 0 L 8 4 L 0 8 z" className="fill-primary" />
+        </marker>
+      </defs>
+      {visibleEdges.map(({ edge, path, labelX, labelY }) => (
+        <g key={edge.id}>
+          <path
+            d={path}
+            className="fill-none stroke-primary/30"
+            markerEnd="url(#bridge-arrow)"
+            strokeLinecap="round"
+            strokeWidth="3"
+          />
+          <foreignObject
+            x={labelX - 52}
+            y={labelY - 13}
+            width="104"
+            height="26"
+          >
+            <div className="mx-auto max-w-[104px] truncate rounded-full border border-border bg-card/95 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground shadow-sm">
+              {`${edge.from.port} -> ${edge.to.port}`}
+            </div>
+          </foreignObject>
+        </g>
+      ))}
+    </svg>
   );
 }
 

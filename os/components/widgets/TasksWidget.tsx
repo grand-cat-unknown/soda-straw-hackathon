@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Circle, ListChecks } from "lucide-react";
+import { CheckCircle2, Circle, ListChecks, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { WidgetComponentProps } from "@/lib/workspace";
@@ -106,9 +106,12 @@ export function TasksWidget({ node, input, emitOutput, runAction }: WidgetCompon
                   <Button
                     type="button"
                     variant="outline"
+                    aria-label={`Send ${title} to connected widgets`}
+                    title="Send this task to connected widgets"
                     onClick={() => emitOutput("selectedTask", task)}
                   >
-                    Select
+                    <Send aria-hidden />
+                    Use task
                   </Button>
                 </div>
               </div>

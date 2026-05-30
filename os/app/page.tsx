@@ -844,7 +844,7 @@ export default function Home() {
       </aside>
 
       <section className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-5 lg:px-8">
+        <div className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col gap-6 px-5 py-5 lg:px-8">
           <header className="flex items-center justify-between gap-4 border-b border-border pb-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
