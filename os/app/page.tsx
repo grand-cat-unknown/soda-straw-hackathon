@@ -144,6 +144,26 @@ function planFromArgs(args: unknown): CanvasPlan | null {
   };
 }
 
+function plannedBridgeKey(bridge: CanvasPlanBridge): string {
+  return [
+    bridge.from.nodeId,
+    bridge.from.port,
+    bridge.to.nodeId,
+    bridge.to.port,
+    bridge.transform ?? "identity",
+  ].join("::");
+}
+
+function plannedBridgeExists(bridge: CanvasPlanBridge): boolean {
+  return Object.values(canvasStore.getState().edges).some(
+    (edge) =>
+      edge.from.nodeId === bridge.from.nodeId &&
+      edge.from.port === bridge.from.port &&
+      edge.to.nodeId === bridge.to.nodeId &&
+      edge.to.port === bridge.to.port,
+  );
+}
+
 const EXAMPLES = [
   "Plan a 25-person birthday party in 4 weeks.",
   "Plan a 10-day September trip that feels intentional.",
@@ -188,6 +208,8 @@ export default function Home() {
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const activeSpaceIdRef = useRef(activeSpaceId);
+  const plannedBridgesRef = useRef<CanvasPlanBridge[]>([]);
+  const settledPlannedBridgeKeysRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     activeSpaceIdRef.current = activeSpaceId;
   }, [activeSpaceId]);
@@ -215,6 +237,8 @@ export default function Home() {
   const clearWorkspace = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    plannedBridgesRef.current = [];
+    settledPlannedBridgeKeysRef.current = new Set();
     canvasStore.resetCanvas();
     setIntent("");
     setReply("");
@@ -222,6 +246,45 @@ export default function Home() {
     setPending([]);
     setError("");
     setIsStreaming(false);
+  }, []);
+
+  const materializePlannedBridges = useCallback(() => {
+    const plannedBridges = plannedBridgesRef.current;
+    if (plannedBridges.length === 0) return;
+
+    for (const bridge of plannedBridges) {
+      const key = plannedBridgeKey(bridge);
+      if (settledPlannedBridgeKeysRef.current.has(key)) continue;
+
+      const state = canvasStore.getState();
+      if (!state.nodes[bridge.from.nodeId] || !state.nodes[bridge.to.nodeId]) {
+        continue;
+      }
+
+      if (plannedBridgeExists(bridge)) {
+        settledPlannedBridgeKeysRef.current.add(key);
+        continue;
+      }
+
+      const args = {
+        from: { node_id: bridge.from.nodeId, port: bridge.from.port },
+        to: { node_id: bridge.to.nodeId, port: bridge.to.port },
+        ...(bridge.transform ? { transform: bridge.transform } : {}),
+      };
+      const output = executeCanvasTool("canvas_add_bridge", args);
+      settledPlannedBridgeKeysRef.current.add(key);
+      setTraces((prev) => [
+        ...prev,
+        {
+          id: `auto:${crypto.randomUUID()}`,
+          server_label: "canvas",
+          name: "canvas_add_bridge",
+          arguments: { ...args, source: "planned_bridge" },
+          output,
+          error: null,
+        },
+      ]);
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -304,6 +367,8 @@ export default function Home() {
             if (event.call.name === "canvas_announce_plan") {
               const plan = planFromArgs(event.call.arguments);
               if (plan) {
+                plannedBridgesRef.current = plan.bridges;
+                settledPlannedBridgeKeysRef.current = new Set();
                 const targetSpaceId = activeSpaceIdRef.current;
                 setSpaces((current) =>
                   current.map((space) =>
@@ -445,6 +510,9 @@ export default function Home() {
                 trace.id === call.call_id ? { ...trace, output } : trace,
               ),
             );
+            if (call.name !== "canvas_announce_plan") {
+              materializePlannedBridges();
+            }
             return { call_id: call.call_id, name: call.name, output };
           });
 
@@ -487,7 +555,7 @@ export default function Home() {
         abortRef.current = null;
       }
     },
-    [activeSpace, runStream],
+    [activeSpace, materializePlannedBridges, runStream],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
