@@ -241,7 +241,25 @@ def list_events():
 
 @router.post("/events", response_model=CalendarEvent, status_code=201)
 def create_event(payload: CalendarEventCreate):
-    if payload.ends_at <= payload.starts_at:
+    # Validate and parse timestamps to prevent storing malformed datetime strings
+    try:
+        starts_at_dt = datetime.fromisoformat(payload.starts_at)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"starts_at must be a valid ISO 8601 datetime string: {exc}"
+        ) from exc
+    
+    try:
+        ends_at_dt = datetime.fromisoformat(payload.ends_at)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ends_at must be a valid ISO 8601 datetime string: {exc}"
+        ) from exc
+    
+    # Compare actual datetime objects, not strings
+    if ends_at_dt <= starts_at_dt:
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at.")
 
     event = CalendarEvent(id=f"evt_{len(events) + 1:03d}", **payload.model_dump())
@@ -256,6 +274,15 @@ def list_reminders():
 
 @router.post("/reminders", response_model=Reminder, status_code=201)
 def create_reminder(payload: ReminderCreate):
+    # Validate remind_at timestamp to prevent storing malformed datetime strings
+    try:
+        datetime.fromisoformat(payload.remind_at)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"remind_at must be a valid ISO 8601 datetime string: {exc}"
+        ) from exc
+    
     reminder = Reminder(id=f"rem_{len(reminders) + 1:03d}", **payload.model_dump())
     reminders.append(reminder)
     return reminder
@@ -263,14 +290,40 @@ def create_reminder(payload: ReminderCreate):
 
 @router.post("/conflicts", response_model=ConflictResponse)
 def find_conflicts(payload: ConflictQuery):
-    if payload.ends_at <= payload.starts_at:
+    # Validate and parse timestamps
+    try:
+        query_starts_at = datetime.fromisoformat(payload.starts_at)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"starts_at must be a valid ISO 8601 datetime string: {exc}"
+        ) from exc
+    
+    try:
+        query_ends_at = datetime.fromisoformat(payload.ends_at)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ends_at must be a valid ISO 8601 datetime string: {exc}"
+        ) from exc
+    
+    # Compare actual datetime objects, not strings
+    if query_ends_at <= query_starts_at:
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at.")
 
-    conflicts = [
-        event
-        for event in events
-        if event.starts_at < payload.ends_at and event.ends_at > payload.starts_at
-    ]
+    conflicts = []
+    for event in events:
+        # Defensive parsing to handle any malformed stored timestamps
+        try:
+            event_starts_at = datetime.fromisoformat(event.starts_at)
+            event_ends_at = datetime.fromisoformat(event.ends_at)
+            # Check for overlap: event starts before query ends AND event ends after query starts
+            if event_starts_at < query_ends_at and event_ends_at > query_starts_at:
+                conflicts.append(event)
+        except ValueError:
+            # Skip events with malformed timestamps
+            continue
+    
     return ConflictResponse(conflicts=conflicts)
 
 
@@ -338,8 +391,13 @@ def busy_events_for_contact(contact: AvailabilityContact, selected_day: date) ->
 
 
 def event_overlaps_day(event: CalendarEvent, selected_day: date) -> bool:
-    starts_at = datetime.fromisoformat(event.starts_at)
-    ends_at = datetime.fromisoformat(event.ends_at)
+    # Defensive parsing with exception handling to prevent crashes from malformed stored timestamps
+    try:
+        starts_at = datetime.fromisoformat(event.starts_at)
+        ends_at = datetime.fromisoformat(event.ends_at)
+    except ValueError:
+        # Skip events with malformed timestamps rather than crashing
+        return False
     return starts_at.date() <= selected_day <= ends_at.date()
 
 
@@ -348,16 +406,21 @@ def available_slots(
     day_end: datetime,
     busy_events: list[CalendarEvent],
 ) -> list[AvailabilitySlot]:
-    busy_windows = sorted(
-        (
-            (
-                max(datetime.fromisoformat(event.starts_at).replace(tzinfo=None), day_start),
-                min(datetime.fromisoformat(event.ends_at).replace(tzinfo=None), day_end),
-            )
-            for event in busy_events
-        ),
-        key=lambda window: window[0],
-    )
+    # Parse busy event timestamps with defensive exception handling
+    parsed_windows = []
+    for event in busy_events:
+        try:
+            event_start = datetime.fromisoformat(event.starts_at).replace(tzinfo=None)
+            event_end = datetime.fromisoformat(event.ends_at).replace(tzinfo=None)
+            parsed_windows.append((
+                max(event_start, day_start),
+                min(event_end, day_end),
+            ))
+        except ValueError:
+            # Skip events with malformed timestamps rather than crashing
+            continue
+    
+    busy_windows = sorted(parsed_windows, key=lambda window: window[0])
 
     slots: list[AvailabilitySlot] = []
     cursor = day_start
