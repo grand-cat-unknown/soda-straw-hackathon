@@ -31,6 +31,16 @@ export const CalendarWidgetContract: WidgetContract = {
       description: "Per-contact availability returned by calendar.availability.",
       optional: true,
     },
+    dayStart: {
+      schema: StringSchema,
+      description: "Start time for the selected day's availability window in HH:MM format.",
+      optional: true,
+    },
+    dayEnd: {
+      schema: StringSchema,
+      description: "End time for the selected day's availability window in HH:MM format.",
+      optional: true,
+    },
     event: {
       schema: UnknownRecordSchema,
       description: "Single event from calendar.create.",
@@ -60,6 +70,22 @@ export const CalendarWidgetContract: WidgetContract = {
       schema: StringSchema,
       description: "Day selected by the user for availability checks.",
     },
+    selectedTimeWindow: {
+      schema: UnknownRecordSchema,
+      description: "Time window selected by the user for availability checks.",
+    },
+    availableContacts: {
+      schema: UnknownArraySchema,
+      description: "Contacts that are fully available for the selected time window.",
+    },
+    partlyBusyContacts: {
+      schema: UnknownArraySchema,
+      description: "Contacts that have both busy and available time in the selected window.",
+    },
+    busyContacts: {
+      schema: UnknownArraySchema,
+      description: "Contacts with no open slots in the selected time window.",
+    },
   },
   render: {
     renderer: "calendar",
@@ -70,6 +96,10 @@ export const CalendarWidgetContract: WidgetContract = {
       selectedEvent: "Event selection buttons",
       selectedReminder: "Reminder selection buttons",
       selectedDay: "Date selector",
+      selectedTimeWindow: "Time range selector",
+      availableContacts: "Availability check results",
+      partlyBusyContacts: "Availability check results",
+      busyContacts: "Availability check results",
     },
   },
   toolCandidates: [

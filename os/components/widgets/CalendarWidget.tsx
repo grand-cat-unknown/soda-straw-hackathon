@@ -20,15 +20,19 @@ export function CalendarWidget({ input, emitOutput, runAction }: WidgetComponent
   const availabilityContacts = useMemo(
     () =>
       selectedContacts.map((contact) => ({
-        id: getString(contact, "id"),
-        name: getString(contact, "name"),
-        email: getString(contact, "email"),
+        ...contact,
       })),
     [selectedContacts],
   );
   const availabilityContactKey = JSON.stringify(availabilityContacts);
   const [selectedDay, setSelectedDay] = useState(() =>
     typeof input.selectedDay === "string" ? input.selectedDay : defaultDateInputValue(),
+  );
+  const [dayStart, setDayStart] = useState(() =>
+    typeof input.dayStart === "string" ? input.dayStart : "09:00",
+  );
+  const [dayEnd, setDayEnd] = useState(() =>
+    typeof input.dayEnd === "string" ? input.dayEnd : "17:00",
   );
   const [availabilityResult, setAvailabilityResult] = useState<Record<string, unknown> | null>(
     null,
@@ -57,17 +61,23 @@ export function CalendarWidget({ input, emitOutput, runAction }: WidgetComponent
 
   useEffect(() => {
     setAvailabilityResult(null);
-  }, [availabilityContactKey, selectedDay]);
+  }, [availabilityContactKey, dayEnd, dayStart, selectedDay]);
 
   async function checkAvailability() {
     setAvailabilityError(null);
     setIsCheckingAvailability(true);
     emitOutput("selectedDay", selectedDay);
+    emitOutput("selectedTimeWindow", { dayStart, dayEnd });
     try {
       const output = await runAction("checkAvailability", {
         date: selectedDay,
+        day_start: dayStart,
+        day_end: dayEnd,
         contacts: availabilityContacts,
       });
+      if (isRecord(output)) {
+        emitAvailabilityOutputs(asRecords(output.availability), emitOutput);
+      }
       setAvailabilityResult(isRecord(output) ? output : { availability: [] });
     } catch (error) {
       setAvailabilityError(
@@ -104,6 +114,36 @@ export function CalendarWidget({ input, emitOutput, runAction }: WidgetComponent
                   onChange={(event) => {
                     setSelectedDay(event.target.value);
                     emitOutput("selectedDay", event.target.value);
+                  }}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                From
+                <input
+                  type="time"
+                  value={dayStart}
+                  onChange={(event) => {
+                    setDayStart(event.target.value);
+                    emitOutput("selectedTimeWindow", {
+                      dayStart: event.target.value,
+                      dayEnd,
+                    });
+                  }}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="grid gap-1 text-xs text-muted-foreground">
+                To
+                <input
+                  type="time"
+                  value={dayEnd}
+                  onChange={(event) => {
+                    setDayEnd(event.target.value);
+                    emitOutput("selectedTimeWindow", {
+                      dayStart,
+                      dayEnd: event.target.value,
+                    });
                   }}
                   className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
                 />
@@ -183,12 +223,13 @@ function AvailabilityList({ items }: { items: Record<string, unknown>[] }) {
           `Contact ${index + 1}`;
         const slots = asRecords(item.available);
         const busy = asRecords(item.busy);
+        const status = availabilityStatusLabel(getString(item, "status"), busy.length);
         return (
           <div key={`${name}:${index}`} className="rounded-md bg-muted/40 p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 truncate text-sm font-medium">{name}</div>
               <div className="text-xs capitalize text-muted-foreground">
-                {getString(item, "status") ?? "available"}
+                {status}
               </div>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
@@ -269,4 +310,45 @@ function formatTime(value?: string): string {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function availabilityStatusLabel(status: string | undefined, busyCount: number): string {
+  if (status === "partly_busy" || (status === "available" && busyCount > 0)) {
+    return "Partly busy";
+  }
+  if (status === "busy") return "Busy";
+  return "Available";
+}
+
+function emitAvailabilityOutputs(
+  items: Record<string, unknown>[],
+  emitOutput: WidgetComponentProps["emitOutput"],
+) {
+  const availableContacts: Record<string, unknown>[] = [];
+  const partlyBusyContacts: Record<string, unknown>[] = [];
+  const busyContacts: Record<string, unknown>[] = [];
+
+  for (const item of items) {
+    const contact = isRecord(item.contact) ? item.contact : undefined;
+    if (!contact) continue;
+
+    const busy = asRecords(item.busy);
+    const available = asRecords(item.available);
+    const status = getString(item, "status");
+
+    if (status === "busy" || (busy.length > 0 && available.length === 0)) {
+      busyContacts.push(contact);
+    } else if (
+      status === "partly_busy" ||
+      (status === "available" && busy.length > 0)
+    ) {
+      partlyBusyContacts.push(contact);
+    } else {
+      availableContacts.push(contact);
+    }
+  }
+
+  emitOutput("availableContacts", availableContacts);
+  emitOutput("partlyBusyContacts", partlyBusyContacts);
+  emitOutput("busyContacts", busyContacts);
 }

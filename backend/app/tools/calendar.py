@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 tool_name = "calendar"
 router = APIRouter(prefix=f"/{tool_name}", tags=[tool_name])
@@ -50,6 +50,8 @@ class ConflictResponse(BaseModel):
 
 
 class AvailabilityContact(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     id: str | None = None
     name: str | None = None
     email: str | None = None
@@ -254,10 +256,21 @@ def check_availability(payload: AvailabilityQuery):
                 contact=contact,
                 busy=busy,
                 available=open_slots,
-                status="available" if open_slots else "busy",
+                status=availability_status(busy, open_slots),
             )
         )
     return AvailabilityResponse(date=payload.date, availability=availability)
+
+
+def availability_status(
+    busy: list[CalendarEvent],
+    open_slots: list[AvailabilitySlot],
+) -> str:
+    if busy and open_slots:
+        return "partly_busy"
+    if busy:
+        return "busy"
+    return "available"
 
 
 def parse_day_time(value: str, field_name: str) -> time:
