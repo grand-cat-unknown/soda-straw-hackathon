@@ -28,8 +28,8 @@ export const MapWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "map",
-    defaultLayout: { x: 0, y: 0, w: 8, h: 6 },
-    minLayout: { w: 5, h: 4 },
+    defaultLayout: { x: 0, y: 0, w: 66, h: 6 },
+    minLayout: { w: 40, h: 4 },
     chrome: "card",
     editable: true,
     outputActions: {

@@ -19,8 +19,8 @@ export const TableWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "table",
-    defaultLayout: { x: 0, y: 0, w: 12, h: 4 },
-    minLayout: { w: 5, h: 3 },
+    defaultLayout: { x: 0, y: 0, w: 100, h: 4 },
+    minLayout: { w: 40, h: 3 },
     chrome: "card",
     editable: true,
     outputActions: {

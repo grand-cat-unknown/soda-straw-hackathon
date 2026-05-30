@@ -34,8 +34,8 @@ export const NotesWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "notes",
-    defaultLayout: { x: 0, y: 0, w: 6, h: 4 },
-    minLayout: { w: 4, h: 3 },
+    defaultLayout: { x: 0, y: 0, w: 50, h: 4 },
+    minLayout: { w: 33, h: 3 },
     chrome: "card",
     editable: true,
     outputActions: {

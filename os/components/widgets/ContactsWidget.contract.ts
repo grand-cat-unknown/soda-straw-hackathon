@@ -48,8 +48,8 @@ export const ContactsWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "contacts",
-    defaultLayout: { x: 0, y: 0, w: 6, h: 5 },
-    minLayout: { w: 4, h: 3 },
+    defaultLayout: { x: 0, y: 0, w: 50, h: 5 },
+    minLayout: { w: 33, h: 3 },
     chrome: "card",
     editable: true,
     outputActions: {

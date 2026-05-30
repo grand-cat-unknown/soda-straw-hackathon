@@ -39,8 +39,8 @@ export const SearchWidgetContract: WidgetContract = {
   },
   render: {
     renderer: "search",
-    defaultLayout: { x: 0, y: 0, w: 8, h: 5 },
-    minLayout: { w: 5, h: 3 },
+    defaultLayout: { x: 0, y: 0, w: 66, h: 5 },
+    minLayout: { w: 40, h: 3 },
     chrome: "card",
     editable: true,
     outputActions: {
