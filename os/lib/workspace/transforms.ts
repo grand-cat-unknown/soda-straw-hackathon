@@ -7,6 +7,8 @@ export type Transform = {
   inputSchema: JsonSchema;
   outputSchema: JsonSchema;
   apply: (value: unknown, params?: Record<string, unknown>) => unknown;
+  generated?: boolean;
+  source?: string;
 };
 
 export function identity(value: unknown): unknown {
@@ -94,6 +96,77 @@ const transforms: Record<string, Transform> = {
   },
 };
 
+const FORBIDDEN_GENERATED_TOKENS = [
+  "document",
+  "window",
+  "globalThis",
+  "Function",
+  "eval",
+  "fetch",
+  "XMLHttpRequest",
+  "import",
+  "localStorage",
+  "sessionStorage",
+  "indexedDB",
+  "navigator",
+  "location",
+  "process",
+  "require",
+];
+
+function assertSafeGeneratedSource(source: string): void {
+  if (source.length > 4000) {
+    throw new Error("Generated transform source is too long.");
+  }
+
+  for (const token of FORBIDDEN_GENERATED_TOKENS) {
+    const pattern = new RegExp(`\\b${token}\\b`);
+    if (pattern.test(source)) {
+      throw new Error(`Generated transform cannot reference ${token}.`);
+    }
+  }
+}
+
+export function createGeneratedTransform({
+  id,
+  description,
+  inputSchema,
+  outputSchema,
+  source,
+}: {
+  id: string;
+  description?: string;
+  inputSchema?: JsonSchema;
+  outputSchema?: JsonSchema;
+  source: string;
+}): Transform {
+  const trimmed = source.trim();
+  if (!/^[a-zA-Z0-9:_-]+$/.test(id)) {
+    throw new Error("Transform id may only contain letters, numbers, ':', '_' and '-'.");
+  }
+  if (!trimmed) throw new Error("Generated transform source is required.");
+  assertSafeGeneratedSource(trimmed);
+
+  const body = trimmed.startsWith("return") ? trimmed : `return (${trimmed});`;
+  const fn = new Function(
+    "value",
+    "params",
+    `"use strict"; const input = value; ${body}`,
+  ) as (value: unknown, params?: Record<string, unknown>) => unknown;
+
+  return {
+    id,
+    description: description ?? "Generated bridge transform.",
+    inputSchema: inputSchema ?? AnySchema,
+    outputSchema: outputSchema ?? AnySchema,
+    generated: true,
+    source: trimmed,
+    apply(value, params) {
+      return fn(value, params);
+    },
+  };
+}
+
 export function registerTransform(transform: Transform): void {
   transforms[transform.id] = transform;
 }
@@ -112,10 +185,13 @@ export function applyTransform(
 ): unknown {
   if (!ref) return value;
   const transformRef = typeof ref === "string" ? { id: ref } : ref;
-  return (transforms[transformRef.id] ?? transforms.identity).apply(
-    value,
-    transformRef.params,
-  );
+  const transform = transforms[transformRef.id] ?? transforms.identity;
+  try {
+    return transform.apply(value, transformRef.params);
+  } catch (error) {
+    console.warn(`Transform ${transform.id} failed.`, error);
+    return undefined;
+  }
 }
 
 export function applyGraphTransform(

@@ -348,7 +348,9 @@ export default function Home() {
         ...(bridge.transform ? { transform: bridge.transform } : {}),
       };
       const output = executeCanvasTool("canvas_add_bridge", args);
-      settledPlannedBridgeKeysRef.current.add(key);
+      if (isRecord(output) && output.ok === true) {
+        settledPlannedBridgeKeysRef.current.add(key);
+      }
       setTraces((prev) => [
         ...prev,
         {

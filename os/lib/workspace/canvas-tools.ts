@@ -5,12 +5,15 @@ import { widgetContracts, getWidgetContract } from "@/lib/workspace/contracts";
 import { canvasStore, getCanvasStateForAgent } from "@/lib/workspace/store";
 import {
   applyTransform,
+  createGeneratedTransform,
   getTransform,
   listTransforms,
+  registerTransform,
 } from "@/lib/workspace/transforms";
 import type {
   Bridge,
   CanvasLayout,
+  JsonSchema,
   ToolAction,
   ToolBinding,
   TransformRef,
@@ -66,6 +69,11 @@ function statePayload() {
   };
 }
 
+function readSchema(value: unknown): JsonSchema | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as JsonSchema;
+}
+
 export function executeCanvasTool(
   name: string,
   args: Record<string, unknown>,
@@ -97,6 +105,7 @@ export function executeCanvasTool(
         to: { node_id: s.to.nodeId, port: s.to.port },
         from_type: s.fromType,
         to_type: s.toType,
+        ...(s.transform ? { transform: s.transform } : {}),
         score: s.score,
       }));
       return { ok: true, suggestions };
@@ -282,6 +291,44 @@ export function executeCanvasTool(
         target_schema: targetSchema,
         source_had_output: sourceValue !== undefined,
       };
+    }
+
+    case "canvas_register_transform": {
+      const id = typeof args.id === "string" ? args.id : "";
+      const source = typeof args.source === "string" ? args.source : "";
+      if (!id) return { ok: false, reason: "Missing id." };
+      if (!source) return { ok: false, reason: "Missing source." };
+
+      try {
+        const transform = createGeneratedTransform({
+          id,
+          source,
+          description:
+            typeof args.description === "string" ? args.description : undefined,
+          inputSchema: readSchema(args.input_schema),
+          outputSchema: readSchema(args.output_schema),
+        });
+        const sampleProvided = "sample_value" in args;
+        const sampleOutput = sampleProvided
+          ? transform.apply(args.sample_value)
+          : undefined;
+        registerTransform(transform);
+        const { apply: _apply, ...registered } = transform;
+        return {
+          ok: true,
+          transform: registered,
+          ...(sampleProvided ? { sample_output: sampleOutput } : {}),
+          ...statePayload(),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          reason:
+            error instanceof Error
+              ? error.message
+              : "Could not register generated transform.",
+        };
+      }
     }
 
     case "canvas_list_transforms": {

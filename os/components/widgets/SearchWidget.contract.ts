@@ -1,5 +1,6 @@
 import {
   AnySchema,
+  PlaceArraySchema,
   StringSchema,
   UnknownArraySchema,
   UnknownRecordSchema,
@@ -17,7 +18,7 @@ export const SearchWidgetContract: WidgetContract = {
       optional: true,
     },
     markers: {
-      schema: UnknownArraySchema,
+      schema: PlaceArraySchema,
       description: "Map markers to use as location context for the search query.",
       optional: true,
     },
