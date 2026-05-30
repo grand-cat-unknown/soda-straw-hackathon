@@ -75,12 +75,18 @@ class GroupsResponse(BaseModel):
 
 
 contacts: list[Contact] = [
-    Contact(id="c_001", name="Maya Rao", relationship="close friend", tags=["friends", "design"], city="Brussels", lat=50.8503, lng=4.3517),
-    Contact(id="c_002", name="Leo Martins", relationship="friend", tags=["friends", "music"], city="Brussels", lat=50.8466, lng=4.3528),
-    Contact(id="c_003", name="Aisha Khan", relationship="coworker", tags=["work", "food"], city="Ghent", lat=51.0543, lng=3.7174),
-    Contact(id="c_004", name="Jonas Peeters", relationship="neighbor", tags=["neighbors"], city="Brussels", lat=50.8550, lng=4.3753),
-    Contact(id="c_005", name="Nina Verma", relationship="close friend", tags=["friends", "planning"], city="Antwerp", lat=51.2194, lng=4.4025),
-    Contact(id="c_006", name="Tom Jacobs", relationship="friend", tags=["friends", "drinks"], city="Bruges", lat=51.2093, lng=3.2247),
+    Contact(id="c_001", name="Maya Rao", relationship="high school friend", tags=["friends", "high school", "design"], city="Brussels", lat=50.8503, lng=4.3517),
+    Contact(id="c_002", name="Leo Martins", relationship="high school friend", tags=["friends", "high school", "music"], city="Brussels", lat=50.8466, lng=4.3528),
+    Contact(id="c_003", name="Aisha Khan", relationship="colleague", tags=["colleagues", "food"], city="Ghent", lat=51.0543, lng=3.7174),
+    Contact(id="c_004", name="Jonas Peeters", relationship="high school friend", tags=["friends", "high school", "neighbors"], city="Brussels", lat=50.8550, lng=4.3753),
+    Contact(id="c_005", name="Nina Verma", relationship="high school friend", tags=["friends", "high school", "planning"], city="Antwerp", lat=51.2194, lng=4.4025),
+    Contact(id="c_006", name="Tom Jacobs", relationship="high school friend", tags=["friends", "high school", "drinks"], city="Bruges", lat=51.2093, lng=3.2247),
+    Contact(id="c_007", name="Sofia Laurent", relationship="university friend", tags=["friends", "university", "art"], city="Brussels", lat=50.8428, lng=4.3517),
+    Contact(id="c_008", name="Bram De Smet", relationship="colleague", tags=["colleagues", "operations"], city="Antwerp", lat=51.2213, lng=4.4051),
+    Contact(id="c_009", name="Eleni Costa", relationship="university friend", tags=["friends", "university", "travel"], city="Leuven", lat=50.8798, lng=4.7005),
+    Contact(id="c_010", name="Samira Benali", relationship="colleague", tags=["colleagues", "product"], city="Brussels", lat=50.8371, lng=4.3676),
+    Contact(id="c_011", name="Oscar Dubois", relationship="university friend", tags=["friends", "university", "sports"], city="Namur", lat=50.4674, lng=4.8718),
+    Contact(id="c_012", name="Priya Nair", relationship="colleague", tags=["colleagues", "research"], city="Ghent", lat=51.0499, lng=3.7303),
 ]
 
 groups: list[Group] = []

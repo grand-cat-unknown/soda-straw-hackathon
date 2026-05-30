@@ -26,7 +26,7 @@ export function CalendarWidget({ input, emitOutput, runAction }: WidgetComponent
   );
   const availabilityContactKey = JSON.stringify(availabilityContacts);
   const [selectedDay, setSelectedDay] = useState(() =>
-    typeof input.selectedDay === "string" ? input.selectedDay : defaultDateInputValue(),
+    inputDateValue(input) ?? defaultDateInputValue(),
   );
   const [dayStart, setDayStart] = useState(() =>
     typeof input.dayStart === "string" ? input.dayStart : "09:00",
@@ -51,17 +51,31 @@ export function CalendarWidget({ input, emitOutput, runAction }: WidgetComponent
     ...(isRecord(input.reminder) ? [input.reminder] : []),
   ];
   const availability = useMemo(
-    () => [
-      ...asRecords(input.availability),
-      ...asRecords(result.availability),
-      ...asRecords(availabilityResult?.availability),
-    ],
+    () =>
+      dedupeAvailability([
+        ...asRecords(input.availability),
+        ...(result === input ? [] : asRecords(result.availability)),
+        ...asRecords(availabilityResult?.availability),
+      ]),
     [availabilityResult, input.availability, result.availability],
   );
 
   useEffect(() => {
     setAvailabilityResult(null);
   }, [availabilityContactKey, dayEnd, dayStart, selectedDay]);
+
+  useEffect(() => {
+    const nextDay = inputDateValue(input);
+    if (nextDay) setSelectedDay(nextDay);
+  }, [input]);
+
+  useEffect(() => {
+    if (typeof input.dayStart === "string") setDayStart(input.dayStart);
+  }, [input.dayStart]);
+
+  useEffect(() => {
+    if (typeof input.dayEnd === "string") setDayEnd(input.dayEnd);
+  }, [input.dayEnd]);
 
   async function checkAvailability() {
     setAvailabilityError(null);
@@ -258,6 +272,26 @@ function AvailabilityList({ items }: { items: Record<string, unknown>[] }) {
   );
 }
 
+function dedupeAvailability(items: Record<string, unknown>[]): Record<string, unknown>[] {
+  const byContact = new Map<string, Record<string, unknown>>();
+
+  for (const item of items) {
+    byContact.set(availabilityContactKey(item), item);
+  }
+
+  return [...byContact.values()];
+}
+
+function availabilityContactKey(item: Record<string, unknown>): string {
+  const contact = isRecord(item.contact) ? item.contact : undefined;
+  return (
+    getString(contact, "id") ??
+    getString(contact, "email") ??
+    getString(contact, "name") ??
+    JSON.stringify(item)
+  );
+}
+
 function CalendarCard({
   primary,
   secondary,
@@ -287,7 +321,25 @@ function CalendarCard({
 }
 
 function defaultDateInputValue(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDateInputValue(new Date());
+}
+
+function inputDateValue(input: Record<string, unknown>): string | undefined {
+  const raw = getString(input, "selectedDay") ?? getString(input, "date");
+  if (!raw) return undefined;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return toDateInputValue(parsed);
+}
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDateTimeRange(startsAt?: string, endsAt?: string): string {

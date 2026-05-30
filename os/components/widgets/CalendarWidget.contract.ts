@@ -31,6 +31,16 @@ export const CalendarWidgetContract: WidgetContract = {
       description: "Per-contact availability returned by calendar.availability.",
       optional: true,
     },
+    selectedDay: {
+      schema: StringSchema,
+      description: "Selected availability date in YYYY-MM-DD format.",
+      optional: true,
+    },
+    date: {
+      schema: StringSchema,
+      description: "Alias for selectedDay; accepted for calendar availability requests.",
+      optional: true,
+    },
     dayStart: {
       schema: StringSchema,
       description: "Start time for the selected day's availability window in HH:MM format.",
