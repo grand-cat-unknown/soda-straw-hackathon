@@ -5,30 +5,47 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { cn } from "@/lib/utils";
-
-export type MapMarker = {
-  id: string;
-  lng: number;
-  lat: number;
-  label?: string;
-  color?: string;
-};
-
-export type MapRoute = {
-  geometry: GeoJSON.LineString;
-  color?: string;
-};
+import type { Place, Route, WidgetComponentProps } from "@/lib/workspace";
 
 export type MapWidgetProps = {
   center?: [number, number];
   zoom?: number;
-  markers?: MapMarker[];
-  route?: MapRoute | null;
+  markers?: Place[];
+  route?: Route | null;
   style?: string;
   fitToContent?: boolean;
   className?: string;
-  onMarkerClick?: (marker: MapMarker) => void;
+  onMarkerClick?: (marker: Place) => void;
 };
+
+export function MapCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
+  const markers = (input.markers as Place[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-3">
+      <MapWidget
+        markers={markers}
+        route={(input.route as Route | null | undefined) ?? null}
+        className="h-[360px]"
+        onMarkerClick={(marker) => emitOutput("selectedMarker", marker)}
+      />
+      {markers.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {markers.map((marker) => (
+            <button
+              key={marker.id}
+              type="button"
+              className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+              onClick={() => emitOutput("selectedMarker", marker)}
+            >
+              {marker.label ?? marker.id}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 const DEFAULT_STYLE = "mapbox://styles/mapbox/streets-v12";
 const DEFAULT_CENTER: [number, number] = [4.3517, 50.8503];

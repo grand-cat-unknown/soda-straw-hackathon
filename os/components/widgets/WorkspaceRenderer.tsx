@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, MapPinned, Pencil, Trash2, X } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 
-import { MapWidget, type MapMarker, type MapRoute } from "@/components/widgets/MapWidget";
-import { TableWidget } from "@/components/widgets/TableWidget";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,9 +21,11 @@ import {
 import type {
   WidgetInput,
   WidgetNode,
-  WorkspaceCanvas,
-  WorkspaceTable,
 } from "@/lib/workspace";
+import {
+  fallbackWidgetRenderer,
+  widgetRenderers,
+} from "@/components/widgets/widget-renderers";
 
 export function WorkspaceRenderer() {
   const canvas = useCanvasState();
@@ -205,168 +205,6 @@ function WidgetBody({
   input: WidgetInput;
   emitOutput: (port: string, value: unknown) => void;
 }) {
-  switch (node.type) {
-    case "canvas-summary":
-      return (
-        <CanvasSummary
-          canvas={input.canvas as WorkspaceCanvas | undefined}
-          emitOutput={emitOutput}
-        />
-      );
-    case "table": {
-      const table = input.table as WorkspaceTable | undefined;
-      return table ? (
-        <TableWidget
-          table={table}
-          variant="embedded"
-          onSelectedRowsChange={(rows) => emitOutput("selectedRows", rows)}
-        />
-      ) : (
-        <ToolResult value={input} emitOutput={emitOutput} />
-      );
-    }
-    case "map": {
-      const markers = (input.markers as MapMarker[] | undefined) ?? [];
-      return (
-        <div className="space-y-3">
-          <MapWidget
-            markers={markers}
-            route={(input.route as MapRoute | null | undefined) ?? null}
-            className="h-[360px]"
-            onMarkerClick={(marker) => emitOutput("selectedMarker", marker)}
-          />
-          {markers.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {markers.map((marker) => (
-                <button
-                  key={marker.id}
-                  type="button"
-                  className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
-                  onClick={() => emitOutput("selectedMarker", marker)}
-                >
-                  {marker.label ?? marker.id}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      );
-    }
-    case "marker-detail":
-      return (
-        <MarkerDetail
-          marker={input.marker as MapMarker | null | undefined}
-          emitOutput={emitOutput}
-        />
-      );
-    case "tool-result":
-      return <ToolResult value={input.value ?? input} emitOutput={emitOutput} />;
-    default:
-      return <ToolResult value={input} emitOutput={emitOutput} />;
-  }
-}
-
-function CanvasSummary({
-  canvas,
-  emitOutput,
-}: {
-  canvas?: WorkspaceCanvas;
-  emitOutput: (port: string, value: unknown) => void;
-}) {
-  if (!canvas) {
-    return <p className="text-sm text-muted-foreground">No canvas data.</p>;
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs">
-          {canvas.layout}
-        </span>
-        <span className="text-muted-foreground">
-          {(canvas.data_sources ?? []).length} data source
-          {(canvas.data_sources ?? []).length === 1 ? "" : "s"}
-        </span>
-      </div>
-
-      {(canvas.actions ?? []).length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {(canvas.actions ?? []).map((action, index) => (
-            <button
-              key={`${action.label}:${index}`}
-              type="button"
-              className="rounded-md border border-border bg-muted px-2 py-1 text-xs transition hover:bg-accent"
-              onClick={() => emitOutput("actionRequested", action)}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MarkerDetail({
-  marker,
-  emitOutput,
-}: {
-  marker?: MapMarker | null;
-  emitOutput: (port: string, value: unknown) => void;
-}) {
-  if (!marker) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <MapPinned className="h-4 w-4" aria-hidden />
-        Select a marker on the map.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2 text-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="font-medium">{marker.label ?? marker.id}</div>
-          <div className="text-muted-foreground">
-            {marker.lat.toFixed(4)}, {marker.lng.toFixed(4)}
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => emitOutput("marker", marker)}
-        >
-          Use marker
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ToolResult({
-  value,
-  emitOutput,
-}: {
-  value: unknown;
-  emitOutput?: (port: string, value: unknown) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      {emitOutput ? (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => emitOutput("value", value)}
-          >
-            Emit value
-          </Button>
-        </div>
-      ) : null}
-      <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
-        {JSON.stringify(value, null, 2)}
-      </pre>
-    </div>
-  );
+  const Renderer = widgetRenderers[node.type] ?? fallbackWidgetRenderer;
+  return <Renderer node={node} input={input} emitOutput={emitOutput} />;
 }

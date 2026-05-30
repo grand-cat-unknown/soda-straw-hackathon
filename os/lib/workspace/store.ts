@@ -101,9 +101,13 @@ function defaultTitle(type: string): string {
   return widgetContracts[type]?.title ?? type;
 }
 
+function defaultLayout(type: string): CanvasLayout {
+  return widgetContracts[type]?.render.defaultLayout ?? DEFAULT_LAYOUT;
+}
+
 function upsertNode(next: CanvasState, node: WidgetNode, layout?: CanvasLayout): void {
   next.nodes[node.id] = node;
-  next.layout[node.id] = layout ?? next.layout[node.id] ?? DEFAULT_LAYOUT;
+  next.layout[node.id] = layout ?? next.layout[node.id] ?? defaultLayout(node.type);
 }
 
 function propagateFrom(

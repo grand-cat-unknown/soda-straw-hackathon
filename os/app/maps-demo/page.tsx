@@ -10,18 +10,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MapWidget, type MapMarker, type MapRoute } from "@/components/widgets/MapWidget";
+import { MapWidget } from "@/components/widgets/MapWidget";
 import { mapsApi, type Place } from "@/lib/maps";
+import type { Place as MapPlace, Route } from "@/lib/workspace";
 
 export default function MapsDemo() {
   const [query, setQuery] = useState("coffee in Brussels");
   const [places, setPlaces] = useState<Place[]>([]);
-  const [route, setRoute] = useState<MapRoute | null>(null);
+  const [route, setRoute] = useState<Route | null>(null);
   const [routeInfo, setRouteInfo] = useState<string>("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const markers: MapMarker[] = places.map((p) => ({
+  const markers: MapPlace[] = places.map((p) => ({
     id: p.id,
     lng: p.lng,
     lat: p.lat,

@@ -20,6 +20,19 @@ export type WorkspaceTable = {
   rows: { id: string; values: Record<string, unknown> }[];
 };
 
+export type Place = {
+  id: string;
+  lng: number;
+  lat: number;
+  label?: string;
+  color?: string;
+};
+
+export type Route = {
+  geometry: GeoJSON.LineString;
+  color?: string;
+};
+
 export type JsonSchema = {
   $id?: string;
   type?: string | string[];
@@ -75,12 +88,22 @@ export type WidgetPortContract = {
   optional?: boolean;
 };
 
+export type WidgetRenderContract = {
+  renderer: string;
+  defaultLayout: CanvasLayout;
+  minLayout?: Partial<CanvasLayout>;
+  chrome?: "card" | "panel" | "bare";
+  editable?: boolean;
+  outputActions?: Record<Port, string>;
+};
+
 export type WidgetContract = {
   type: WidgetType;
   title: string;
   description: string;
   inputs: Record<string, WidgetPortContract>;
   outputs: Record<string, WidgetPortContract>;
+  render: WidgetRenderContract;
 };
 
 export type WidgetDefinition = {
@@ -89,6 +112,7 @@ export type WidgetDefinition = {
   description: string;
   inputs: WidgetPort[];
   outputs: WidgetPort[];
+  render: WidgetRenderContract;
 };
 
 export type WidgetNode = {
@@ -96,6 +120,12 @@ export type WidgetNode = {
   type: WidgetType;
   title: string;
   input: WidgetInput;
+};
+
+export type WidgetComponentProps<TInput extends WidgetInput = WidgetInput> = {
+  node: WidgetNode;
+  input: TInput;
+  emitOutput: (port: Port, value: unknown) => void;
 };
 
 export type TransformRef = {

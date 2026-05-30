@@ -22,6 +22,11 @@ The first live-canvas slice is implemented:
 - `canvas_list_widgets` is available for compact widget inspection.
 - Widget frames now expose edit/remove controls, visible input/output ports, and last-emitted outputs.
 - Table, map, canvas summary, marker-detail, and generic result widgets now have clear UI actions that emit node outputs.
+- Widgets remain peer-agnostic: shared payload shapes live in workspace types/contracts, while bridges/transforms own cross-widget translation and propagation.
+- Widget contracts now expose render metadata: renderer id, default/min layout, chrome preference, editability, and output action affordances.
+- The canvas store uses widget render defaults when adding widgets without explicit layout.
+- Widget contracts are now owned by widget-adjacent contract modules instead of the generic workspace contract file.
+- Widget-specific render bodies are now owned by widget modules; the workspace renderer uses a registry lookup instead of a widget-type switch.
 - Production build passes with `npm run build`.
 
 ## Completed
@@ -80,6 +85,10 @@ The first live-canvas slice is implemented:
 - Added map marker action buttons that emit `selectedMarker`, including when Mapbox is unavailable.
 - Added canvas action buttons that emit `actionRequested`.
 - Added marker-detail and tool-result buttons that emit `marker` and `value`.
+- Moved map/place payload types into the shared workspace layer so widgets do not import domain types from each other.
+- Added `WidgetRenderContract` so each widget can declare how it wants to be hosted without knowing about neighboring widgets.
+- Replaced the central widget switch with `widget-renderers.ts`, which maps widget type to the widget-owned renderer.
+- Converted `os/lib/workspace/contracts.ts` into a thin re-export over widget-owned contract modules.
 
 ## Still left
 

@@ -2,8 +2,21 @@
 
 import { useMemo, useState } from "react";
 
-import type { WorkspaceTable } from "@/lib/workspace";
+import type { WidgetComponentProps, WorkspaceTable } from "@/lib/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export function TableCanvasWidget({ input, emitOutput }: WidgetComponentProps) {
+  const table = input.table as WorkspaceTable | undefined;
+  return table ? (
+    <TableWidget
+      table={table}
+      variant="embedded"
+      onSelectedRowsChange={(rows) => emitOutput("selectedRows", rows)}
+    />
+  ) : (
+    <p className="text-sm text-muted-foreground">No table input.</p>
+  );
+}
 
 export function TableWidget({
   table,
