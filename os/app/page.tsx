@@ -5,19 +5,23 @@ import {
   KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { RotateCcw, Send, Sparkles } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  RotateCcw,
+  Send,
+  Sparkles,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ActivityTicker } from "@/components/widgets/ActivityTicker";
 import { CanvasHost } from "@/components/widgets/CanvasHost";
@@ -56,6 +60,8 @@ type ChatSpace = {
   id: string;
   title: string;
   messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
 };
 
 const EXAMPLES = [
@@ -65,10 +71,13 @@ const EXAMPLES = [
 ];
 
 function createChatSpace(): ChatSpace {
+  const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    title: "Untitled space",
+    title: "New space",
     messages: [],
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -93,10 +102,15 @@ export default function Home() {
   const [catalog, setCatalog] = useState<{ name: string; description: string }[]>(
     [],
   );
-  const [activeSpace, setActiveSpace] = useState<ChatSpace>(() =>
-    createChatSpace(),
-  );
+  const [spaces, setSpaces] = useState<ChatSpace[]>(() => [createChatSpace()]);
+  const [activeSpaceId, setActiveSpaceId] = useState(() => spaces[0]?.id ?? "");
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const activeSpace = useMemo(
+    () => spaces.find((space) => space.id === activeSpaceId) ?? spaces[0],
+    [activeSpaceId, spaces],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +127,7 @@ export default function Home() {
     };
   }, []);
 
-  const reset = useCallback(() => {
+  const clearWorkspace = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     canvasStore.resetCanvas();
@@ -123,8 +137,32 @@ export default function Home() {
     setPending([]);
     setError("");
     setIsStreaming(false);
-    setActiveSpace(createChatSpace());
   }, []);
+
+  const reset = useCallback(() => {
+    const nextSpace = createChatSpace();
+    clearWorkspace();
+    setSpaces([nextSpace]);
+    setActiveSpaceId(nextSpace.id);
+  }, [clearWorkspace]);
+
+  const createSpace = useCallback(() => {
+    const nextSpace = createChatSpace();
+    clearWorkspace();
+    setSpaces((current) => [nextSpace, ...current]);
+    setActiveSpaceId(nextSpace.id);
+    setChatCollapsed(false);
+  }, [clearWorkspace]);
+
+  const selectSpace = useCallback(
+    (spaceId: string) => {
+      if (spaceId === activeSpaceId) return;
+      clearWorkspace();
+      setActiveSpaceId(spaceId);
+      setChatCollapsed(false);
+    },
+    [activeSpaceId, clearWorkspace],
+  );
 
   const runStream = useCallback(
     async (
@@ -243,21 +281,30 @@ export default function Home() {
       setTraces([]);
       setPending([]);
       setIsStreaming(true);
+      setIntent("");
 
       const userMessage = createChatMessage("user", trimmed);
-      const conversation = activeSpace.messages.map(({ role, content }) => ({
+      const history = activeSpace?.messages ?? [];
+      const conversation = history.map(({ role, content }) => ({
         role,
         content,
       }));
       const nextTitle =
-        activeSpace.messages.length === 0
+        history.length === 0
           ? trimmed.slice(0, 64)
           : activeSpace.title;
-      setActiveSpace((space) => ({
-        ...space,
-        title: space.messages.length === 0 ? nextTitle : space.title,
-        messages: [...space.messages, userMessage],
-      }));
+      setSpaces((current) =>
+        current.map((space) =>
+          space.id === activeSpace.id
+            ? {
+                ...space,
+                title: space.messages.length === 0 ? nextTitle : space.title,
+                messages: [...space.messages, userMessage],
+                updatedAt: Date.now(),
+              }
+            : space,
+        ),
+      );
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -314,10 +361,17 @@ export default function Home() {
             "assistant",
             assistantText.trim(),
           );
-          setActiveSpace((space) => ({
-            ...space,
-            messages: [...space.messages, assistantMessage],
-          }));
+          setSpaces((current) =>
+            current.map((space) =>
+              space.id === activeSpace.id
+                ? {
+                    ...space,
+                    messages: [...space.messages, assistantMessage],
+                    updatedAt: Date.now(),
+                  }
+                : space,
+            ),
+          );
         }
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
@@ -348,143 +402,268 @@ export default function Home() {
 
   const hasResult =
     reply.length > 0 ||
-    activeSpace.messages.length > 0 ||
+    Boolean(activeSpace?.messages.length) ||
     traces.length > 0 ||
     pending.length > 0;
 
   return (
-    <main className="min-h-screen px-4 py-12">
-      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <header className="flex items-end justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              Fluid OS
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              State your intent.
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              The agent assembles a workspace from modular tools.
-            </p>
-          </div>
-          {hasResult ? (
+    <main className="flex min-h-screen flex-col bg-background lg:flex-row">
+      <aside
+        className={`border-r border-border bg-card transition-[width] duration-200 ${
+          chatCollapsed ? "w-full lg:w-14" : "w-full lg:w-[400px]"
+        }`}
+      >
+        {chatCollapsed ? (
+          <div className="flex items-center gap-2 px-3 py-2 lg:h-screen lg:flex-col lg:px-2 lg:py-4">
             <Button
               type="button"
               variant="ghost"
-              onClick={reset}
-              aria-label="Start over"
+              size="icon"
+              aria-label="Expand chat"
+              title="Expand chat"
+              onClick={() => setChatCollapsed(false)}
             >
-              <RotateCcw aria-hidden />
-              New intent
+              <PanelLeftOpen aria-hidden />
             </Button>
-          ) : null}
-        </header>
-
-        <Card className="fluid-enter">
-          <CardHeader>
-            <CardTitle className="text-base">What do you want to do?</CardTitle>
-            <CardDescription>
-              {catalog.length > 0
-                ? `${catalog.length} tools available via Soda Straw.`
-                : "Try an example or describe your own."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  disabled={isStreaming}
-                  onClick={() => setIntent(example)}
-                  className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-              <Textarea
-                aria-label="Intent"
-                placeholder="Describe what you want to accomplish..."
-                value={intent}
-                onChange={(event) => setIntent(event.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isStreaming}
-                rows={3}
-              />
-              <div className="flex items-center justify-between gap-3">
-                <p className="min-h-5 text-sm text-destructive">{error}</p>
-                <div className="flex items-center gap-2">
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
-                    ⌘ + Enter
-                  </span>
-                  <Button disabled={isStreaming} type="submit">
-                    <Send aria-hidden="true" />
-                    {isStreaming ? "Working" : "Send"}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="New space"
+              title="New space"
+              onClick={createSpace}
+            >
+              <Plus aria-hidden />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex max-h-[72vh] flex-col lg:h-screen lg:max-h-none">
+            <header className="border-b border-border px-4 py-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                    Fluid OS
+                  </div>
+                  <h1 className="truncate text-lg font-semibold">
+                    {activeSpace?.title ?? "New space"}
+                  </h1>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="New space"
+                    title="New space"
+                    onClick={createSpace}
+                    disabled={isStreaming}
+                  >
+                    <Plus aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Collapse chat"
+                    title="Collapse chat"
+                    onClick={() => setChatCollapsed(true)}
+                  >
+                    <PanelLeftClose aria-hidden />
                   </Button>
                 </div>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {spaces.map((space) => (
+                  <button
+                    key={space.id}
+                    type="button"
+                    onClick={() => selectSpace(space.id)}
+                    disabled={isStreaming}
+                    className={`flex max-w-56 shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition ${
+                      space.id === activeSpace?.id
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
+                    } disabled:opacity-50`}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                    <span className="truncate">{space.title}</span>
+                  </button>
+                ))}
+              </div>
+            </header>
 
-        {!hasResult && catalog.length > 0 ? (
-          <div className="fluid-enter flex flex-wrap gap-1.5">
-            {catalog.map((entry) => (
-              <span
-                key={entry.name}
-                title={entry.description}
-                className="rounded border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-              >
-                {entry.name}
-              </span>
-            ))}
+            <section className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              {activeSpace && activeSpace.messages.length > 0 ? (
+                <div className="space-y-4">
+                  {activeSpace.messages.map((message) => (
+                    <ChatBubble key={message.id} message={message} />
+                  ))}
+                  {reply && isStreaming ? (
+                    <ChatBubble
+                      message={{
+                        id: "streaming",
+                        role: "assistant",
+                        content: reply,
+                      }}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold">What should change?</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Ask for a workspace, then keep refining it in this space.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {EXAMPLES.map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        disabled={isStreaming}
+                        onClick={() => setIntent(example)}
+                        className="rounded-md border border-border bg-muted px-3 py-2 text-left text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                  {catalog.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {catalog.slice(0, 18).map((entry) => (
+                        <span
+                          key={entry.name}
+                          title={entry.description}
+                          className="rounded border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {entry.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
+            <footer className="border-t border-border p-4">
+              <ActivityTicker
+                pending={pending}
+                traces={traces}
+                isStreaming={isStreaming}
+              />
+              {error ? (
+                <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              ) : null}
+              <form className="mt-3 space-y-3" onSubmit={handleSubmit}>
+                <Textarea
+                  aria-label="Message"
+                  placeholder="Ask the agent to build or change the workspace..."
+                  value={intent}
+                  onChange={(event) => setIntent(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isStreaming}
+                  rows={3}
+                  className="min-h-[92px] resize-none"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={reset}
+                    disabled={isStreaming || !hasResult}
+                  >
+                    <RotateCcw aria-hidden />
+                    Reset
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      ⌘ + Enter
+                    </span>
+                    <Button disabled={isStreaming} type="submit">
+                      <Send aria-hidden="true" />
+                      {isStreaming ? "Working" : "Send"}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </footer>
           </div>
-        ) : null}
+        )}
+      </aside>
 
-        <ActivityTicker
-          pending={pending}
-          traces={traces}
-          isStreaming={isStreaming}
-        />
+      <section className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-5 lg:px-8">
+          <header className="flex items-center justify-between gap-4 border-b border-border pb-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                Workspace
+              </div>
+              <h2 className="mt-1 truncate text-2xl font-semibold">
+                {activeSpace?.title ?? "New space"}
+              </h2>
+            </div>
+            {chatCollapsed ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setChatCollapsed(false)}
+              >
+                <ChevronRight aria-hidden />
+                Chat
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setChatCollapsed(true)}
+              >
+                <ChevronLeft aria-hidden />
+                Hide chat
+              </Button>
+            )}
+          </header>
 
-        {activeSpace.messages.length > 0 || reply ? (
-          <Card className="fluid-enter">
-            <CardHeader>
-              <CardTitle className="text-base">{activeSpace.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activeSpace.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={
-                    message.role === "user"
-                      ? "ml-auto max-w-[85%] rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-                      : "max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm"
-                  }
-                >
-                  <p className="whitespace-pre-wrap leading-6">
-                    {message.content}
+          <div className="flex-1">
+            <CanvasHost />
+            {!hasResult ? (
+              <div className="flex min-h-[55vh] items-center justify-center rounded-md border border-dashed border-border bg-card px-6 text-center">
+                <div className="max-w-md">
+                  <h3 className="text-lg font-semibold">No workspace yet</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Start from the chat pane and the agent will assemble the UI
+                    here.
                   </p>
                 </div>
-              ))}
-              {reply && isStreaming ? (
-                <div className="max-w-[85%] rounded-md border border-border bg-muted px-3 py-2 text-sm">
-                  <p className="whitespace-pre-wrap leading-6">{reply}</p>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        ) : null}
+              </div>
+            ) : null}
+          </div>
 
-        <div className="fluid-enter">
-          <CanvasHost />
+          <ToolTrace traces={traces} />
         </div>
-
-        <ToolTrace traces={traces} />
       </section>
     </main>
+  );
+}
+
+function ChatBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === "user";
+
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[88%] rounded-md px-3 py-2 text-sm ${
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "border border-border bg-muted text-foreground"
+        }`}
+      >
+        <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+      </div>
+    </div>
   );
 }
