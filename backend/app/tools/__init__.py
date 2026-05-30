@@ -1,12 +1,31 @@
-from app.tools import actions, budget, calendar, contacts, messages, shadcn, shopping, tasks
+from app.tools import (
+    calculator,
+    calendar,
+    canvas,
+    contacts,
+    files,
+    forms,
+    maps,
+    messages,
+    notes,
+    search,
+    shadcn,
+    tables,
+    tasks,
+)
 
 tool_modules = [
     contacts,
     calendar,
     tasks,
-    shopping,
-    budget,
+    tables,
+    notes,
+    files,
+    search,
+    maps,
+    calculator,
+    forms,
+    canvas,
     messages,
-    actions,
     shadcn,
 ]
