@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from app.auth import API_KEY_HEADER, DEFAULT_API_KEY, verify_api_key
+from app.auth import API_KEY_HEADER, verify_api_key
 from app.tools import tool_modules
 from app.ui_metadata import enrich_capability
 
@@ -44,7 +44,6 @@ def tools(request: Request):
     return {
         "base_url": str(request.base_url).rstrip("/"),
         "api_key_header": API_KEY_HEADER,
-        "default_api_key": DEFAULT_API_KEY,
         "tools": list(tool_registry.values()),
     }
 
