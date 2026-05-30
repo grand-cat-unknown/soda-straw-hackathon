@@ -26,9 +26,17 @@ async function callCapability(
   capabilityId: string,
   params: Record<string, unknown> = {},
 ): Promise<unknown> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  
+  // Add authentication header if NEXT_PUBLIC_CAPABILITY_API_KEY is set
+  const apiKey = process.env.NEXT_PUBLIC_CAPABILITY_API_KEY;
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+  
   const response = await fetch("/api/capability-call", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ capabilityId, params }),
   });
   const data = (await response.json()) as CapabilityCallResponse;
