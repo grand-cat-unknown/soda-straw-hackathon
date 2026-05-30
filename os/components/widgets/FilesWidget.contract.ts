@@ -1,0 +1,45 @@
+import {
+  AnySchema,
+  UnknownArraySchema,
+  UnknownRecordSchema,
+} from "@/lib/workspace/schemas";
+import type { WidgetContract } from "@/lib/workspace/types";
+
+export const FilesWidgetContract: WidgetContract = {
+  type: "files",
+  title: "Files",
+  description: "Renders file records and file lists.",
+  inputs: {
+    files: {
+      schema: UnknownArraySchema,
+      description: "Files from files.list.",
+      optional: true,
+    },
+    file: {
+      schema: UnknownRecordSchema,
+      description: "Single file record from file actions.",
+      optional: true,
+    },
+    result: {
+      schema: AnySchema,
+      description: "Raw files capability result.",
+      optional: true,
+    },
+  },
+  outputs: {
+    selectedFile: {
+      schema: UnknownRecordSchema,
+      description: "File selected by the user.",
+    },
+  },
+  render: {
+    renderer: "files",
+    defaultLayout: { x: 0, y: 0, w: 6, h: 4 },
+    minLayout: { w: 4, h: 3 },
+    chrome: "card",
+    editable: true,
+    outputActions: {
+      selectedFile: "File selection buttons",
+    },
+  },
+};
