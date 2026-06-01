@@ -8,6 +8,7 @@ Fluid OS treats Soda Straw as the capability backbone for MCPs, APIs, databases,
 and external tools. The OS layer then builds ephemeral workspaces from
 deterministic widgets, wiring them together on the fly for the current task.
 
+You can find a quick demo here on  [`Youtube`](https://www.youtube.com/watch?v=EVEpLuITTQs&t=1s). 
 Read the deeper project framing in [`os/README.md`](os/README.md).
 
 For a concise product pitch, read [`pitch.md`](pitch.md).
